@@ -4,7 +4,7 @@ function notchBounds(display, mode = "collapsed") {
   const sizes = {
     collapsed: [232, 40],
     peek: [432, 300],
-    expanded: [640, 760],
+    expanded: [704, 800],
   };
   const [w, h] = sizes[mode] || sizes.collapsed;
   const width = Math.min(w, area.width),

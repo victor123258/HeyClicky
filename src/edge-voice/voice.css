@@ -1,8 +1,8 @@
 :root {
   font-family: "Segoe UI", sans-serif;
-  color: #38432e;
-  background: #f0f3e9;
-  font-size: 13px;
+  color: #e8ece4;
+  background: #22261a;
+  font-size: 14px;
 }
 * {
   box-sizing: border-box;
@@ -16,9 +16,9 @@ main {
   margin: auto;
 }
 .eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.6px;
-  color: #91a17d;
+  color: #c0c9b5;
 }
 h1 {
   font-size: 38px;
@@ -28,20 +28,20 @@ h1 {
   margin: 22px 0;
 }
 .intro {
-  color: #8c997b;
+  color: #c0c7b7;
   line-height: 1.8;
 }
 #connection {
   padding: 12px 15px;
-  background: #e5ecd8;
+  background: #2e3423;
   border-radius: 9px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.7;
   margin: 22px 0;
 }
 section {
-  background: #fff;
-  border: 1px solid #dee6d0;
+  background: #202020;
+  border: 1px solid #414931;
   padding: 22px;
   border-radius: 12px;
   margin: 16px 0;
@@ -52,9 +52,9 @@ h2 {
 }
 p,
 footer {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.85;
-  color: #8d997d;
+  color: #c0c7b8;
 }
 button,
 input {
@@ -63,19 +63,19 @@ input {
 button {
   display: block;
   width: 100%;
-  border: 1px solid #c5d9ab;
+  border: 1px solid #3f4931;
   border-radius: 7px;
   padding: 11px;
-  background: #deedc8;
-  color: #748d53;
-  font-size: 12px;
+  background: #2d3423;
+  color: #e9eee2;
+  font-size: 13px;
   cursor: pointer;
   margin-top: 13px;
 }
 button.secondary {
-  background: #f8f0ed;
-  color: #b09185;
-  border-color: #eadbd4;
+  background: #261d1a;
+  color: #cdb9b2;
+  border-color: #493931;
 }
 button:disabled {
   opacity: 0.45;
@@ -83,22 +83,22 @@ button:disabled {
 }
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid #99b674;
+  outline: 2px solid #3f4931;
   outline-offset: 3px;
 }
 input:not([type="checkbox"]) {
   display: block;
   width: 100%;
-  border: 1px solid #dfe6d4;
+  border: 1px solid #404931;
   border-radius: 6px;
   padding: 9px;
   margin-top: 7px;
-  color: #7d8f6b;
-  background: #fbfcf9;
+  color: #bfc8b6;
+  background: #22261a;
 }
 label {
-  font-size: 11px;
-  color: #99a389;
+  font-size: 13px;
+  color: #c1c7b7;
 }
 .consent {
   display: flex;
@@ -113,32 +113,80 @@ label {
 }
 small {
   display: block;
-  font-size: 10px;
-  color: #a6b295;
+  font-size: 12px;
+  color: #c1c9b5;
   line-height: 1.8;
   margin-top: 12px;
 }
 #transcript {
-  font-size: 13px;
+  font-size: 14px;
   white-space: pre-wrap;
   line-height: 1.8;
-  color: #8d769e;
+  color: #c1b4ca;
   overflow-wrap: anywhere;
   max-height: 180px;
   overflow: auto;
 }
 #status {
-  font-size: 11px;
-  color: #9b88ae;
+  font-size: 13px;
+  color: #bfb3cb;
 }
 .recording #status {
-  color: #9c6786;
+  color: #cdb2c2;
   font-weight: 600;
 }
 footer {
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 24px;
 }
 [hidden] {
   display: none !important;
+}
+:root {
+  color-scheme: dark;
+  color: #e5edf9;
+  background: #101722;
+}
+section {
+  background: #1a2534;
+  border-color: #34475f;
+}
+h1 {
+  color: #e5edf9;
+}
+p,
+footer,
+.intro,
+label,
+small {
+  color: #b5c5dc;
+}
+#connection {
+  background: #22374a;
+  color: #c8e6ff;
+}
+button {
+  background: #b7df95;
+  color: #1c2b13;
+  min-height: 42px;
+}
+button.secondary {
+  background: #482d38;
+  color: #ffd2dc;
+  border-color: #765160;
+}
+#transcript,
+#status {
+  color: #cfbaff;
+}
+input:not([type="checkbox"]) {
+  background: #111c2a;
+  border-color: #3c526d;
+  color: #e8f1ff;
+}
+main {
+  padding: 28px 22px;
+}
+label {
+  font-size: 13px;
 }

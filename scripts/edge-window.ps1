@@ -8,7 +8,8 @@ public static class EdgeHelperWindow {
   delegate bool EnumCallback(IntPtr window, IntPtr extra);
   [DllImport("user32.dll")] static extern bool EnumWindows(EnumCallback callback, IntPtr extra);
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
-  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetClassName(IntPtr window, System.Text.StringBuilder name, int max);
+  [DllImport("user32.dll")] static extern int GetWindowTextLength(IntPtr window);
   [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr window, int command);
   [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
   [DllImport("user32.dll")] static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
@@ -16,8 +17,11 @@ public static class EdgeHelperWindow {
     var allowed = new HashSet<int>(processes); int count=0;
     EnumWindows((window,extra)=>{
       uint pid; GetWindowThreadProcessId(window,out pid);
-      if(allowed.Contains((int)pid) && IsWindowVisible(window)) {
-        if(action=="minimize") ShowWindowAsync(window,6);
+      var name = new System.Text.StringBuilder(256); GetClassName(window,name,name.Capacity);
+      // Hidden windows must remain restorable/closable; ignore Edge internals.
+      if(allowed.Contains((int)pid) && name.ToString()=="Chrome_WidgetWin_1" && GetWindowTextLength(window)>0) {
+        if(action=="hide") ShowWindowAsync(window,0);
+        else if(action=="minimize") ShowWindowAsync(window,6);
         else if(action=="restore") { ShowWindowAsync(window,9); SetForegroundWindow(window); }
         else if(action=="close") PostMessage(window,0x10,IntPtr.Zero,IntPtr.Zero);
         count++;
@@ -30,7 +34,7 @@ public static class EdgeHelperWindow {
 '@
 $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
 if ($request.action -eq 'probe') { Write-Output 'OK'; exit 0 }
-if ($request.action -notin @('minimize','restore','close')) { throw 'Invalid Edge window action' }
+if ($request.action -notin @('hide','minimize','restore','close')) { throw 'Invalid Edge window action' }
 $profile = [string]$request.profile
 if (-not $profile.EndsWith('\edge-voice-profile', [StringComparison]::OrdinalIgnoreCase)) { throw 'Only the dedicated Edge voice profile may be controlled' }
 $escaped = [Regex]::Escape($profile)

@@ -19,10 +19,15 @@ const crypto = require("node:crypto");
 const { Settings } = require("./lib/settings");
 const { complete } = require("./lib/llm");
 const { runAgent } = require("./lib/agent");
+const { timeQuestion } = require("./lib/clock");
 const { Voice } = require("./voice");
 const { EdgeVoice } = require("./edge-voice");
 const { Notch } = require("./notch");
 const { Tasks } = require("./lib/tasks");
+const { BackgroundJobs, ApprovalQueue } = require("./lib/background");
+const { searchWeb, text: htmlText } = require("./lib/research");
+const { createDocument } = require("./lib/documents");
+const { validateVisual } = require("./lib/visuals");
 const { Keys } = require("./keys");
 const { keyGroups } = require("./lib/hold-keys");
 const native = require("./native");
@@ -36,6 +41,8 @@ if (smokeMode) {
   app.setPath("userData", process.env.HEYCLICKY_TEST_USER_DATA);
 }
 
+let backgroundJobs;
+let visualResults = [];
 let edge,
   edgeClosing = false;
 let panel,
@@ -64,7 +71,7 @@ function emit(type, data) {
   if (type === "message") {
     data = {
       ...data,
-      jobId: currentTaskId,
+      jobId: data.jobId ?? currentTaskId,
       at: Date.now(),
       id: crypto.randomUUID(),
     };
@@ -109,15 +116,19 @@ function error(error) {
     panel.focus();
   }
 }
-function stop() {
+function stop(all = true) {
+  if (all) backgroundJobs?.stopAll();
   controller?.abort();
   controller = null;
   speech?.stop();
   listeningMode = null;
   heldTurn = null;
-  tasks.stopAll();
+  tasks.stopAll(all ? undefined : "desktop");
   broadcast("caption", null);
-  if (approval) {
+  if (
+    approval &&
+    (all || !approval.jobId || approval.jobId === currentTaskId)
+  ) {
     approval.resolve(false);
     approval = null;
     approvalPublic = null;
@@ -231,7 +242,11 @@ async function capture(signal) {
     notch?.suspend(false);
   }
 }
+const approvalQueue = new ApprovalQueue(presentApproval);
 function approve(action, signal) {
+  return approvalQueue.request(action, signal);
+}
+function presentApproval(action, signal) {
   return new Promise((resolve) => {
     let settled = false;
     const finish = (value) => {
@@ -246,11 +261,15 @@ function approve(action, signal) {
     };
     const abort = () => finish(false);
     const timer = setTimeout(() => finish(false), 120000);
-    approval = { id: crypto.randomUUID(), resolve: finish };
+    approval = {
+      id: crypto.randomUUID(),
+      jobId: action.jobId ?? currentTaskId,
+      resolve: finish,
+    };
     signal.addEventListener("abort", abort, { once: true });
     approvalPublic = { id: approval.id, jobId: currentTaskId, ...action };
     emit("approval", approvalPublic);
-    setState("approval");
+    if (!action.jobId || action.jobId === currentTaskId) setState("approval");
     showPanel("chat");
     if (signal.aborted) finish(false);
   });
@@ -268,8 +287,119 @@ async function desktopInput(request, signal) {
     notch?.suspend(false);
   }
 }
+async function renderPDF(html, signal) {
+  const win = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      javascript: false,
+    },
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  const abort = () => {
+    if (!win.isDestroyed()) win.destroy();
+  };
+  signal.addEventListener("abort", abort, { once: true });
+  const timeout = setTimeout(abort, 30000);
+  timeout.unref?.();
+  try {
+    signal.throwIfAborted();
+    await win.loadURL(
+      "data:text/html;charset=utf-8," + encodeURIComponent(html),
+    );
+    signal.throwIfAborted();
+    return await win.webContents.printToPDF({
+      printBackground: true,
+      pageSize: "A4",
+      preferCSSPageSize: true,
+    });
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", abort);
+    if (!win.isDestroyed()) win.destroy();
+  }
+}
+async function safeTool(name, args, signal, jobId = null) {
+  signal.throwIfAborted();
+  if (name === "search_web") return searchWeb(args.query, signal);
+  if (name === "create_document")
+    return createDocument(args, signal, (html) => renderPDF(html, signal));
+  if (name === "show_visual") {
+    const spec = validateVisual(args.spec),
+      visual = { id: crypto.randomUUID(), jobId, spec };
+    visualResults.push(visual);
+    visualResults = visualResults.slice(-8);
+    emit("visual", visual);
+    return (
+      "Interactive visual added to the notch conversation. Title: " + spec.title
+    );
+  }
+  // Only these existing approval-gated data operations may run off-desktop.
+  if (!["read_file", "write_file", "fetch_url"].includes(name))
+    throw Error("Tool unavailable in background mode.");
+  return dataTool(name, args, signal);
+}
+async function dataTool(name, args, signal) {
+  signal.throwIfAborted();
+  if (name === "read_file") {
+    const handle = await fs.open(args.path, "r");
+    try {
+      const info = await handle.stat();
+      if (!info.isFile() || info.size > 32768)
+        throw Error("Read limit is 32 KB and regular text files only.");
+      return await handle.readFile("utf8");
+    } finally {
+      await handle.close();
+    }
+  }
+  if (name === "write_file") {
+    signal.throwIfAborted();
+    await fs.writeFile(args.path, args.content, { encoding: "utf8", signal });
+    return "File written.";
+  }
+  if (name === "fetch_url") {
+    const response = await fetch(args.url, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+      redirect: "error",
+    });
+    if (!response.ok) throw Error(`HTTP ${response.status}`);
+    const type = response.headers.get("content-type") || "";
+    if (!/text\/|application\/(json|xml)/i.test(type))
+      throw Error("Only text, JSON or XML responses can be fetched.");
+    const reader = response.body.getReader();
+    let data = Buffer.alloc(0);
+    try {
+      while (data.length < 32768) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        data = Buffer.concat([
+          data,
+          Buffer.from(value).subarray(0, 32768 - data.length),
+        ]);
+      }
+    } finally {
+      await reader.cancel();
+    }
+    return (
+      (/text\/html/i.test(type)
+        ? htmlText(data.toString("utf8"))
+        : data.toString("utf8")) +
+      "\nSource: " +
+      args.url +
+      "\nRetrieved: " +
+      new Date().toISOString() +
+      "\n[Maximum 32 KB; redirects are not followed.]"
+    );
+  }
+
+  throw Error("Unknown data tool.");
+}
 async function execute(name, args, signal) {
   signal.throwIfAborted();
+  if (["search_web", "create_document", "show_visual"].includes(name))
+    return safeTool(name, args, signal, currentTaskId);
   setState("working");
   if (name === "screenshot") return capture(signal);
   if (name === "draw") {
@@ -307,53 +437,12 @@ async function execute(name, args, signal) {
     return (
       (await native.powershell(args.command, signal)) || "Command completed."
     );
-  if (name === "read_file") {
-    const handle = await fs.open(args.path, "r");
-    try {
-      const info = await handle.stat();
-      if (!info.isFile() || info.size > 32768)
-        throw Error("Read limit is 32 KB and regular text files only.");
-      return await handle.readFile("utf8");
-    } finally {
-      await handle.close();
-    }
-  }
-  if (name === "write_file") {
-    signal.throwIfAborted();
-    await fs.writeFile(args.path, args.content, { encoding: "utf8", signal });
-    return "File written.";
-  }
   if (name === "open_url") {
     await shell.openExternal(args.url);
     return "Opened in default browser.";
   }
-  if (name === "fetch_url") {
-    const response = await fetch(args.url, {
-      signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
-      redirect: "error",
-    });
-    if (!response.ok) throw Error(`HTTP ${response.status}`);
-    const type = response.headers.get("content-type") || "";
-    if (!/text\/|application\/(json|xml)/i.test(type))
-      throw Error("Only text, JSON or XML responses can be fetched.");
-    const reader = response.body.getReader();
-    let data = Buffer.alloc(0);
-    try {
-      while (data.length < 32768) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        data = Buffer.concat([
-          data,
-          Buffer.from(value).subarray(0, 32768 - data.length),
-        ]);
-      }
-    } finally {
-      await reader.cancel();
-    }
-    return (
-      data.toString("utf8") + "\n[Maximum 32 KB; redirects are not followed.]"
-    );
-  }
+  if (["read_file", "write_file", "fetch_url"].includes(name))
+    return dataTool(name, args, signal);
   throw Error("Unknown tool.");
 }
 async function ask(text, mode = "talk", display, taskId = null) {
@@ -385,12 +474,18 @@ async function ask(text, mode = "talk", display, taskId = null) {
   emit("message", { role: "user", text, mode });
   setState("thinking");
   try {
-    const image = settings.value.screenContext ? await capture(signal) : null;
+    const image =
+      settings.value.screenContext && !timeQuestion(text)
+        ? await capture(signal)
+        : null;
     const chunks = [];
     const answer = await runAgent({
       text,
       mode,
       history: task ? task.history : history,
+      outputDirectory: /document|report|pdf|docx|write|create/i.test(text)
+        ? app.getPath("documents")
+        : "",
       image,
       signal,
       askBeforeActions: settings.value.askBeforeActions,
@@ -431,7 +526,9 @@ async function ask(text, mode = "talk", display, taskId = null) {
     if (task) {
       task.history = targetHistory.slice(-12);
       tasks.update(taskId, {
-        status: /denied/i.test(answer) ? "cancelled" : "completed",
+        status: answer.startsWith("That action was denied.")
+          ? "cancelled"
+          : "completed",
         result: answer,
       });
     } else history = history.slice(-12);
@@ -475,18 +572,27 @@ function submit(text, mode = "talk", taskId, display) {
     typeof text !== "string" ||
     !text.trim() ||
     text.length > 12000 ||
-    !["talk", "agent"].includes(mode)
+    !["talk", "agent", "background"].includes(mode)
   )
     throw Error("Enter a question up to 12,000 characters.");
   if (!settings.key) {
     showPanel("settings");
     throw Error("Save your OpenRouter API key in Settings first.");
   }
-  if (/^agent\b[\s,:]*/i.test(text)) {
+  if (mode !== "background" && /^agent\b[\s,:]*/i.test(text)) {
     mode = "agent";
     text = text.replace(/^agent\b[\s,:]*/i, "");
   }
   if (!text.trim()) throw Error("Tell the agent what you want it to do.");
+  if (taskId && (currentTaskId === taskId || backgroundJobs.active.has(taskId)))
+    throw Error(
+      "Wait for the previous task to finish stopping before following up.",
+    );
+  if (mode === "background") {
+    const job = tasks.enqueue(text, taskId, "background");
+    backgroundJobs.pump();
+    return job.id;
+  }
   if (mode === "agent") {
     const task = tasks.enqueue(text, taskId);
     task.display =
@@ -511,14 +617,19 @@ function pumpTasks() {
 function cancelTask(id) {
   if (typeof id !== "string" || !tasks.get(id)) throw Error("Unknown task.");
   if (!tasks.cancel(id)) return;
+  if (tasks.get(id).kind === "background") {
+    backgroundJobs.cancel(id);
+    return;
+  }
   if (currentTaskId === id) {
     controller?.abort();
     speech.stop();
-    if (approval) approval.resolve(false);
+    if (approval?.jobId === id) approval.resolve(false);
   }
 }
 function startHold(mode, source = "pointer") {
-  if (!["talk", "agent"].includes(mode)) throw Error("Invalid voice mode.");
+  if (!["talk", "agent", "background"].includes(mode))
+    throw Error("Invalid voice mode.");
   if (heldTurn) return;
   if (source === "keyboard" && !keys?.ready) {
     error(
@@ -631,7 +742,7 @@ function listen(mode, held = false) {
 }
 function toggleDictation() {
   if (controller || listeningMode) {
-    stop();
+    stop(false);
     return;
   }
   listeningMode = "dictate";
@@ -656,7 +767,7 @@ function toggleDictation() {
           })
           .catch((e) => {
             if (!current.signal.aborted) {
-              stop();
+              stop(false);
               error(e);
             }
           });
@@ -669,16 +780,16 @@ function toggleDictation() {
         });
       },
       (e) => {
-        stop();
+        stop(false);
         error(e);
       },
       () => {
-        if (controller === current) stop();
+        if (controller === current) stop(false);
       },
       settings.value.speechLanguage,
     );
   } catch (e) {
-    stop();
+    stop(false);
     error(e);
   }
 }
@@ -761,6 +872,7 @@ function installIPC() {
     history,
     messages,
     tasks: tasks.snapshot(),
+    visuals: visualResults,
     approval: approvalPublic,
     packaged: app.isPackaged,
   }));
@@ -806,6 +918,7 @@ function installIPC() {
   handle("voices", () => speech.voices());
   handle("speech-diagnostics", () => speech.diagnostics());
   handle("edge-status", () => edge.status());
+  handle("edge-background", () => edge.background());
   handle("edge-setup", () => {
     if (controller || listeningMode || requestRunning)
       throw Error("Stop the current task before opening Edge setup.");
@@ -840,19 +953,21 @@ function installIPC() {
     releaseHold("pointer", cancel);
   });
   handle("listen", (mode) => {
-    if (!["talk", "agent"].includes(mode)) throw Error("Invalid mode.");
+    if (!["talk", "agent", "background"].includes(mode))
+      throw Error("Invalid mode.");
     listen(mode);
   });
   handle("dictate", toggleDictation);
   handle("stop", stop);
   handle("hide", () => panel.hide());
   handle("clear", () => {
-    if (requestRunning)
-      throw Error("Stop and wait for the current task before clearing.");
+    if (requestRunning || backgroundJobs?.active.size)
+      throw Error("Stop and wait for running tasks before clearing.");
     stop();
     history = [];
     messages = [];
     tasks.clear();
+    visualResults = [];
     emit("cleared");
   });
   handle("approval", (id, allowed) => {
@@ -915,6 +1030,12 @@ async function runDesktopSmoke() {
           })
         : Promise.resolve();
     await Promise.all([panel, notch.window, ...overlays].map(loaded));
+    const pdf = await renderPDF(
+      "<!doctype html><title>Smoke</title><p>PDF smoke test</p>",
+      new AbortController().signal,
+    );
+    if (!pdf.subarray(0, 4).equals(Buffer.from("%PDF")))
+      throw Error("PDF generation failed.");
     const panelReady = await panel.webContents.executeJavaScript(`(async () => {
       const response = await window.clicky.call('get-settings');
       return response.ok && response.data.notch === true && Boolean(document.querySelector('#voice-test'));
@@ -929,7 +1050,7 @@ async function runDesktopSmoke() {
     if (
       !expanded.expanded ||
       notch.window.getBounds().height !==
-        Math.min(760, screen.getPrimaryDisplay().workArea.height)
+        Math.min(800, screen.getPrimaryDisplay().workArea.height)
     )
       throw Error("Notch did not expand through its trusted bridge.");
     await notch.window.webContents.executeJavaScript(
@@ -940,7 +1061,8 @@ async function runDesktopSmoke() {
     const integrated = await notch.window.webContents
       .executeJavaScript(`(async()=>{
       await window.notch.open('settings'); const s=await window.notch.call('get-settings');
-      return s.ok && Boolean(document.querySelector('#settings-form')) && Boolean(document.querySelector('#composer'));
+      const host=document.createElement('div');window.visuals.render(host,{kind:'chart',title:'Smoke',caption:'Local',items:[{label:'A',value:1}]});
+      return s.ok && Boolean(host.querySelector('canvas')) && Boolean(document.querySelector('[data-mode=background]')) && Boolean(document.querySelector('#settings-form')) && Boolean(document.querySelector('#composer'));
     })()`);
     if (!integrated) throw Error("Integrated notch chat and settings failed.");
     const isolated = await notch.window.webContents.executeJavaScript(
@@ -962,10 +1084,74 @@ else {
     .whenReady()
     .then(() => {
       settings = new Settings(app.getPath("userData"), safeStorage);
+      backgroundJobs = new BackgroundJobs({
+        tasks,
+        run: async (job, signal) => {
+          const key = settings.key,
+            model = settings.value.model;
+          emit("message", {
+            role: "user",
+            text: job.prompt,
+            mode: "background",
+            jobId: job.id,
+          });
+          const chunks = [];
+          const answer = await runAgent({
+            text: job.prompt,
+            mode: "background",
+            history: job.history,
+            signal,
+            outputDirectory: /document|report|pdf|docx|write|create/i.test(
+              job.prompt,
+            )
+              ? app.getPath("documents")
+              : "",
+            complete: (messages, tools, signal) =>
+              complete({ key, model, messages, tools, signal }),
+            execute: (name, args, signal) =>
+              safeTool(name, args, signal, job.id),
+            approve: async (action, signal) => {
+              tasks.update(job.id, { status: "approval" });
+              try {
+                return await approve({ ...action, jobId: job.id }, signal);
+              } finally {
+                if (!signal.aborted)
+                  tasks.update(job.id, { status: "running" });
+              }
+            },
+            onMessage: (text) => {
+              chunks.push(text);
+              emit("message", { role: "assistant", text, jobId: job.id });
+            },
+            onTool: (data) => {
+              tasks.step(job.id, data);
+              emit("tool", { ...data, jobId: job.id });
+            },
+          });
+          signal.throwIfAborted();
+          if (answer && chunks.at(-1) !== answer)
+            emit("message", { role: "assistant", text: answer, jobId: job.id });
+          job.history = [
+            ...job.history,
+            { role: "user", content: job.prompt },
+            {
+              role: "assistant",
+              content: [
+                ...chunks,
+                ...(chunks.at(-1) !== answer ? [answer] : []),
+              ]
+                .join("\n")
+                .slice(0, 12000),
+            },
+          ].slice(-12);
+          return answer;
+        },
+      });
       edge = new EdgeVoice({
         userData: app.getPath("userData"),
         native,
         getBackground: () => settings.value.edgeBackground,
+        getWindowMode: () => settings.value.edgeWindowMode,
         onBackground: (allowed) => {
           settings.save({ ...settings.value, edgeBackground: allowed });
           emit("edge-status", edge.status());

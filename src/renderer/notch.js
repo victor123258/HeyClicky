@@ -10,6 +10,8 @@ let layout = { mode: "collapsed", route: "home", state: "idle" },
   route = "home",
   mode = "talk",
   selectedJob = null;
+let visualAnswers = [],
+  renderedVisual = null;
 let jobs = [],
   messages = [],
   approvalId,
@@ -61,6 +63,12 @@ function task(fn) {
 }
 function setMode(value) {
   mode = value;
+  $("#mode-hint").textContent =
+    value === "background"
+      ? "Background · 2 concurrent research/writing workers. No screen, mouse or shell. Approvals still required; uses your API credits."
+      : value === "agent"
+        ? "Agent · desktop tools with your approval. Verify each action."
+        : "Talk · answers, clock & approved web reads. Switch to Agent for desktop actions.";
   $$("[data-mode]").forEach((b) =>
     b.classList.toggle("selected", b.dataset.mode === value),
   );
@@ -103,8 +111,9 @@ function renderLayout(data) {
     "aria-label",
     data.state === "idle" ? "Tap to talk" : "Stop current task",
   );
-  $("#stop").hidden = data.state === "idle";
-  $$(".peek-stop").forEach((b) => (b.hidden = data.state === "idle"));
+  $("#stop").hidden =
+    data.state === "idle" && !jobs.some((j) => !terminal.includes(j.status));
+  $$(".peek-stop").forEach((b) => (b.hidden = $("#stop").hidden));
   $("#voice-test").disabled = data.state !== "idle";
   $("#hold-talk").disabled = !["idle", "starting", "listening"].includes(
     data.state,
@@ -134,7 +143,11 @@ function jobButton(job, compact = false) {
   mark.append(icon(job.status === "completed" ? "check" : "spark"));
   const info = el("div", "job-info");
   info.append(
-    el("div", "job-title", job.title),
+    el(
+      "div",
+      "job-title",
+      (job.kind === "background" ? "Background · " : "") + job.title,
+    ),
     el(
       "small",
       "",
@@ -142,7 +155,9 @@ function jobButton(job, compact = false) {
         ? "Open task"
         : job.steps?.length
           ? `${job.steps.length} activity updates · session only`
-          : "Queued tasks inspect the selected display when they start.",
+          : job.kind === "background"
+            ? "Off-desktop research/writing · approval-gated tools"
+            : "Queued tasks inspect the selected display when they start.",
     ),
   );
   button.append(
@@ -163,7 +178,7 @@ function jobButton(job, compact = false) {
   );
   button.onclick = task(async () => {
     selectedJob = job.id;
-    setMode("agent");
+    setMode(job.kind === "background" ? "background" : "agent");
     await open("chat");
   });
   return button;
@@ -188,7 +203,45 @@ function renderJobs() {
   }
   if (route === "chat") renderThread();
 }
+function renderVisual(force = false) {
+  const list = visualAnswers.filter((v) => v.jobId === (selectedJob || null)),
+    select = $("#visual-select"),
+    current = select.value;
+  $("#visual-panel").hidden = !list.length;
+  if (!list.length) {
+    window.visuals?.clear();
+    renderedVisual = null;
+    return;
+  }
+  select.replaceChildren(
+    ...list.map((v) => {
+      const option = el("option", "", v.spec.title);
+      option.value = v.id;
+      return option;
+    }),
+  );
+  const visual = list.find((v) => v.id === current) || list.at(-1);
+  select.value = visual.id;
+  if (renderedVisual === visual.id && !force) return;
+  renderedVisual = visual.id;
+  $("#visual-title").textContent = visual.spec.title;
+  $("#visual-caption").textContent = visual.spec.caption;
+  $("#visual-help").hidden = visual.spec.kind !== "scene3d";
+  try {
+    if (!window.visuals)
+      throw Error("Visual renderer not built. Run npm run build:visuals.");
+    window.visuals.render($("#visual-canvas"), visual.spec);
+  } catch (error) {
+    $("#visual-canvas").textContent =
+      "Unable to render visual: " +
+      error.message +
+      ". Use a 2D answer if WebGL is unavailable.";
+  }
+}
+$("#visual-select").onchange = () => renderVisual(true);
+$("#visual-reset").onclick = () => renderVisual(true);
 function renderThread() {
+  renderVisual();
   const job = jobs.find((j) => j.id === selectedJob),
     list = selectedJob
       ? messages.filter((m) => m.jobId === selectedJob)
@@ -197,7 +250,7 @@ function renderThread() {
     ? job.title
     : "A conversation with Clicky";
   $("#thread-hint").textContent = job
-    ? `${job.status} · follow up when this task finishes`
+    ? `${job.kind === "background" ? "Background worker" : "Desktop agent"} · ${job.status} · follow up after it finishes`
     : "Your screen is context. You’re in control.";
   const thread = $("#thread");
   thread.replaceChildren();
@@ -245,7 +298,11 @@ function renderThread() {
     steps.append(
       heading,
       ...job.steps.map((s) =>
-        el("div", "step-row", `${s.name.replaceAll("_", " ")} · ${s.status}`),
+        el(
+          "div",
+          `step-row ${s.status}`,
+          `${s.name.replaceAll("_", " ")} · ${s.status}`,
+        ),
       ),
     );
     if (
@@ -257,6 +314,7 @@ function renderThread() {
 }
 function fillSettings(data) {
   config = data;
+  $("#edge-window-mode").value = data.edgeWindowMode || "minimized";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
   $("#edge-fallback").checked = data.edgeFallback !== false;
@@ -344,12 +402,31 @@ function renderEdgeStatus(data) {
   $("#edge-status").textContent =
     (data.connected ? "Connected. " : "Not connected. ") +
     (data.backgroundAllowed
-      ? "Minimized launches enabled. "
-      : "Automatic minimized launches are off. ") +
+      ? "Background launches enabled. "
+      : "Automatic background launches are off. ") +
     (data.detail || "");
   $("#edge-disable").hidden = !data.backgroundAllowed;
 }
 function appEvent({ type, data }) {
+  if (type === "visual") {
+    visualAnswers.push(data);
+    visualAnswers = visualAnswers.slice(-8);
+    if (route === "chat") renderVisual();
+  }
+  if (type === "tool" && (!data.jobId || data.jobId === selectedJob)) {
+    const labels = {
+      get_time: "Device clock",
+      fetch_url: "Read web page",
+      screenshot: "Capture screen",
+      draw: "Draw guide",
+    };
+    $("#tool-status").hidden = false;
+    $("#tool-status").dataset.status = data.status;
+    $("#tool-status").textContent =
+      (labels[data.name] || data.name.replaceAll("_", " ")) +
+      " · " +
+      data.status;
+  }
   if (type === "edge-status") renderEdgeStatus(data);
   if (type === "voice-notice") {
     notify(data);
@@ -361,8 +438,13 @@ function appEvent({ type, data }) {
   if (type === "tasks") {
     jobs = data;
     renderJobs();
+    $("#stop").hidden =
+      layout.state === "idle" &&
+      !jobs.some((j) => !terminal.includes(j.status));
+    $$(".peek-stop").forEach((b) => (b.hidden = $("#stop").hidden));
   }
   if (type === "message") {
+    if (data.role === "user") $("#tool-status").hidden = true;
     messages.push(data);
     messages = messages.slice(-200);
     $("#chat-count").textContent = messages.length;
@@ -399,6 +481,10 @@ function appEvent({ type, data }) {
   if (type === "cleared") {
     messages = [];
     jobs = [];
+    visualAnswers = [];
+    window.visuals?.clear();
+    renderedVisual = null;
+    $("#visual-panel").hidden = true;
     selectedJob = null;
     $("#chat-count").textContent = "0";
     $("#voice-transcript").hidden = true;
@@ -467,7 +553,11 @@ $("#composer").onsubmit = task(async (e) => {
   $("#prompt").value = "";
   if (id) {
     selectedJob = id;
-    setMode("agent");
+    setMode(
+      jobs.find((j) => j.id === id)?.kind === "background"
+        ? "background"
+        : "agent",
+    );
   }
   await open("chat");
   renderThread();
@@ -546,6 +636,9 @@ $("#test-key").onclick = task(async () => {
 });
 $("#voice-provider").onchange = () =>
   ($("#edge-options").hidden = $("#voice-provider").value !== "edge");
+$("#edge-background").onclick = task(async () =>
+  renderEdgeStatus(await call("edge-background")),
+);
 $("#edge-setup").onclick = task(async () =>
   renderEdgeStatus(await call("edge-setup")),
 );
@@ -604,6 +697,7 @@ $("#settings-form").onsubmit = task(async (e) => {
       voice: $("#voice-select").value,
       speechLanguage: $("#speech-language").value,
       voiceProvider: $("#voice-provider").value,
+      edgeWindowMode: $("#edge-window-mode").value,
       edgeLanguage: $("#edge-language").value.trim(),
       edgeFallback: $("#edge-fallback").checked,
       rate: Number($("#rate").value),
@@ -645,6 +739,7 @@ task(async () => {
   const data = await call("get-settings");
   fillSettings(data);
   jobs = data.tasks || [];
+  visualAnswers = data.visuals || [];
   messages = data.messages || [];
   $("#chat-count").textContent = messages.length;
   renderJobs();

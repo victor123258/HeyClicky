@@ -1,3 +1,7 @@
+# Scope update for 1.6
+
+The original redesign notes below describe 1.3. Version 1.6 additionally implements bounded interactive 3D primitives, 2D charts/diagrams, approval-gated best-effort web search, DOCX/PDF/text exports and two concurrent **off-desktop** research/writing workers. It does not implement arbitrary 3D/CAD imports, isolated virtual desktops, native service connectors, routines or parallel computer-control agents. See README and SECURITY for current scope and limits.
+
 # Notch-centered redesign (1.3.0)
 
 ## Reference and scope

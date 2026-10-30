@@ -12,7 +12,8 @@
       <h1>A voice for your<br />little buddy.</h1>
       <p class="intro">
         This dedicated Edge window provides speech recognition for your desktop
-        app. It is not a hidden service.
+        app. It is not a headless service. A hidden-window option is
+        experimental.
       </p>
       <div id="connection" role="status">Connecting to the desktop app…</div>
       <section>
@@ -33,17 +34,17 @@
         <h2>2. Choose background use</h2>
         <p>
           After a successful test, you can let HeyClicky launch this dedicated
-          helper minimized. Edge remains running. Its microphone indicators stay
-          intact. Permission can be remembered for this address and profile, but
-          browser updates, cleared settings or suspension may require setup
-          again.
+          helper minimized or, experimentally, with its window hidden. Choose
+          the window behavior in app Settings. Edge remains running. Its
+          microphone indicators stay intact. Permission can be remembered for
+          this address and profile, but browser updates, cleared settings or
+          suspension may require setup again.
         </p>
         <label class="consent"
           ><input type="checkbox" id="consent" /> I understand that this uses
           online Edge speech, may need permission again, and is not guaranteed
           to work headlessly.</label
-        ><button id="background" disabled>
-          Enable background use & minimize</button
+        ><button id="background" disabled>Enable background use</button
         ><small id="background-status"
           >Test recognition successfully before enabling background use.</small
         >

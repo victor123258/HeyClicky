@@ -295,7 +295,7 @@
     try {
       await post({ type: "background-approved" });
       $("#background-status").textContent =
-        "Background use enabled. Edge may still need a visible gesture after updates or suspension.";
+        "Background use enabled using the app’s saved window behavior. Restore it from app Settings if permission or another visible gesture is needed.";
     } catch (error) {
       $("#background-status").textContent = error.message;
     }

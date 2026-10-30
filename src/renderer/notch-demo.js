@@ -14,7 +14,12 @@ if (!(window.notch && typeof window.notch.get === "function")) {
   let config = {
     model: "openai/gpt-4.1-mini",
     voice: "",
-    speechLanguage: "", voiceProvider:"windows",edgeLanguage:"en-US",edgeFallback:true,edgeBackground:false,
+    speechLanguage: "",
+    voiceProvider: "windows",
+    edgeLanguage: "en-US",
+    edgeFallback: true,
+    edgeBackground: false,
+    edgeWindowMode: "minimized",
     rate: 0,
     notch: true,
     captions: true,
@@ -72,11 +77,24 @@ if (!(window.notch && typeof window.notch.get === "function")) {
         config = { ...config, ...args[0] };
         return { ok: true, data: config };
       }
-      if(["edge-setup","edge-close","edge-status"].includes(name)){
-        const data={connected:false,backgroundAllowed:false,detail:"Design preview only. The Windows app opens real Edge; this preview does not access a microphone."};event("edge-status",data);return {ok:true,data};
+      if (
+        ["edge-setup", "edge-close", "edge-status", "edge-background"].includes(
+          name,
+        )
+      ) {
+        const data = {
+          connected: false,
+          backgroundAllowed: false,
+          detail:
+            "Design preview only. The Windows app opens real Edge; this preview does not access a microphone.",
+        };
+        event("edge-status", data);
+        return { ok: true, data };
       }
       if (name === "ask") {
-        const id = args[1] === "agent" ? `demo-${Date.now()}` : null;
+        const id = ["agent", "background"].includes(args[1])
+          ? `demo-${Date.now()}`
+          : null;
         const message = {
           id: String(Date.now()),
           role: "user",
@@ -90,6 +108,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
           jobs.unshift({
             id,
             title: args[0],
+            kind: args[1] === "background" ? "background" : "desktop",
             status: "running",
             steps: [],
             result: "",
@@ -196,4 +215,57 @@ if (!(window.notch && typeof window.notch.get === "function")) {
       "Sample cards are for design preview only. No tasks are running.",
     );
   };
+  function previewVisual(spec) {
+    layout = { ...layout, mode: "expanded", route: "chat" };
+    onLayout(layout);
+    event("visual", { id: "preview-" + Date.now(), jobId: null, spec });
+    event("error", "Visual preview only — no AI request or desktop action.");
+  }
+  document.querySelector("#demo-visual").onclick = () =>
+    previewVisual({
+      kind: "scene3d",
+      title: "Interactive 3D — shapes in space",
+      caption:
+        "Drag to rotate and zoom. This is a local illustrative scene, not generated evidence or a physics simulation.",
+      objects: [
+        {
+          type: "box",
+          label: "Cube",
+          color: "#baa4ef",
+          x: -2,
+          y: 1,
+          z: 0,
+          size: 2,
+        },
+        {
+          type: "sphere",
+          label: "Sphere",
+          color: "#a3dbb8",
+          x: 2,
+          y: 1,
+          z: 0,
+          size: 2,
+        },
+        {
+          type: "cone",
+          label: "Cone",
+          color: "#f0c28b",
+          x: 0,
+          y: 1,
+          z: -3,
+          size: 2,
+        },
+      ],
+    });
+  document.querySelector("#demo-chart").onclick = () =>
+    previewVisual({
+      kind: "chart",
+      title: "Illustrative 2D chart",
+      caption: "Sample values only. Real research charts must cite sources.",
+      items: [
+        { label: "Research", value: 8 },
+        { label: "Write", value: 6 },
+        { label: "Review", value: 4 },
+      ],
+    });
 }

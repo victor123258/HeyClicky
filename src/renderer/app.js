@@ -54,6 +54,7 @@ function showApproval(data) {
 }
 function updateConfig(data) {
   config = data;
+  $('#edge-window-mode').value=data.edgeWindowMode||'minimized';
   $('#voice-provider').value=data.voiceProvider||'windows';$('#edge-language').value=data.edgeLanguage||'en-US';$('#edge-fallback').checked=data.edgeFallback!==false;$('#edge-options').hidden=$('#voice-provider').value!=='edge';if(data.edgeStatus)renderEdgeStatus(data.edgeStatus);
   $('#model-label').textContent = data.model;
   $('#connection-dot').classList.toggle('connected', data.hasKey);
@@ -132,6 +133,7 @@ $('#test-key').onclick = safeTask(async () => {
   finally { $('#test-key').disabled=false; }
 });
 $('#voice-provider').onchange=()=>$('#edge-options').hidden=$('#voice-provider').value!=='edge';
+$('#edge-background').onclick=safeTask(async()=>renderEdgeStatus(await call('edge-background')));
 $('#edge-setup').onclick=safeTask(async()=>renderEdgeStatus(await call('edge-setup')));
 $('#edge-close').onclick=safeTask(async()=>renderEdgeStatus(await call('edge-close')));
 $('#edge-disable').onclick=safeTask(async()=>{const saved=await call('save-settings',{...config,edgeBackground:false});config.edgeBackground=saved.edgeBackground;renderEdgeStatus(await call('edge-status'));});
@@ -153,7 +155,7 @@ $('#load-voices').onclick = safeTask(async () => {
 });
 $('#settings-form').onsubmit = safeTask(async e => {
   e.preventDefault();
-  const value={ ...config, model:$('#model').value.trim(),voice:$('#voice-select').value,speechLanguage:$('#speech-language').value,voiceProvider:$('#voice-provider').value,edgeLanguage:$('#edge-language').value.trim(),edgeFallback:$('#edge-fallback').checked,notch:$('#notch-enabled').checked,rate:Number($('#rate').value),speak:$('#speak').checked,buddy:$('#buddy').checked,askBeforeActions:$('#ask-before').checked,startWithWindows:$('#start-windows').checked,screenContext:$('#screen-context').checked,hotkeys:{} };
+  const value={ ...config, model:$('#model').value.trim(),voice:$('#voice-select').value,speechLanguage:$('#speech-language').value,voiceProvider:$('#voice-provider').value,edgeWindowMode:$('#edge-window-mode').value,edgeLanguage:$('#edge-language').value.trim(),edgeFallback:$('#edge-fallback').checked,notch:$('#notch-enabled').checked,rate:Number($('#rate').value),speak:$('#speak').checked,buddy:$('#buddy').checked,askBeforeActions:$('#ask-before').checked,startWithWindows:$('#start-windows').checked,screenContext:$('#screen-context').checked,hotkeys:{} };
   for (const key of Object.keys(shortcutInfo)) value.hotkeys[key]=$(`#hotkey-${key}`).value.trim();
   const key=$('#api-key').value.trim() || undefined;
   const saved=await call('save-settings',value,key); updateConfig(saved); $('#save-result').textContent='✓ Settings saved on this PC';
