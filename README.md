@@ -8,6 +8,8 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 ## New in 1.2.0
 
+![Expandable notch UI preview](docs/notch-preview.png)
+
 - **Expandable notch:** compact top-center companion on your primary display, hover/click to expand, Talk / Agent / Dictate / Stop / Chat quick controls, live task status and recognized text. It does not steal typing focus. Turn it off in Settings → Top-of-screen notch. It hides during screenshots and agent input, and respects display/taskbar work-area changes. Full action approval remains in the panel, not the compact notch.
 - **Voice reliability:** immediately flushed native protocol, installed-recognizer selection, configurable input language, startup/turn timeouts, complete UTF-8/final-line parsing, stderr draining, and clean microphone closure before submitting a question. Cancelled listeners cannot submit stale text.
 - **Microphone diagnostics:** Settings → Voice & personality → Find languages, then Test microphone. This test needs **no API key**, takes no screenshot, sends nothing to AI, and never types into another app. Windows microphone, sound and speech settings links help resolve device/permission/language problems.
@@ -133,7 +135,7 @@ test/                  Node test runner: agent safety, settings, tools, HTTP and
 
 ## Validation and known limits
 
-Automated tests cover denial, cancellation during approval, talk-mode isolation, tool argument validation, step limits, encrypted-key round trips, HTTP error handling, and browser DOM interactions. CI also parses PowerShell and compiles/probes the native input helper and enumerates installed voices and speech-recognition engines. These do **not** prove live desktop/microphone behavior or model quality.
+Automated tests cover denial, cancellation during approval, talk-mode isolation, tool argument validation, step limits, encrypted-key round trips, HTTP error handling, and browser DOM interactions. CI also parses PowerShell, compiles/probes the native input helper, enumerates installed voices and speech-recognition engines, and launches the actual Electron panel/notch with isolated user data to verify startup, expansion/collapse, and the restricted notch IPC bridge. These do **not** prove live desktop/microphone behavior or model quality.
 
 Before distributing broadly, run [the Windows acceptance checklist](docs/WINDOWS-TESTING.md) on an actual Windows 10/11 machine with a microphone, OpenRouter credit and mixed-DPI monitors. No live paid model call or physical microphone test was run in the Linux coding workspace.
 

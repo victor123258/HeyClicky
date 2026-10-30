@@ -70,3 +70,12 @@ test('microphone test renders recognized text locally, with no AI call',async()=
  d.querySelector('#speech-diagnostics').click();await wait();assert.equal(d.querySelector('#speech-language').options.length,2);
  }finally{dom.window.close();}
 });
+test('standalone notch browser preview does not mistake the DOM id for a preload API',async()=>{
+ const dom=new JSDOM(fs.readFileSync(path.join(root,'notch.html'),'utf8'),{runScripts:'outside-only',url:'http://preview/notch.html'});
+ try {
+ dom.window.eval(fs.readFileSync(path.join(root,'notch.js'),'utf8'));await wait();const d=dom.window.document;
+ assert.equal(d.body.classList.contains('preview-page'),true);assert.equal(d.querySelector('#details').hidden,false);
+ d.querySelector('[data-action="talk"]').click();await wait();assert.match(d.querySelector('#preview').textContent,/Windows app only/);
+ d.querySelector('#collapse').click();await wait();assert.equal(d.querySelector('#details').hidden,true);
+ }finally{dom.window.close();}
+});
