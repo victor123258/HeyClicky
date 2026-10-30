@@ -54,6 +54,7 @@ function showApproval(data) {
 }
 function updateConfig(data) {
   config = data;
+  $('#voice-provider').value=data.voiceProvider||'windows';$('#edge-language').value=data.edgeLanguage||'en-US';$('#edge-fallback').checked=data.edgeFallback!==false;$('#edge-options').hidden=$('#voice-provider').value!=='edge';if(data.edgeStatus)renderEdgeStatus(data.edgeStatus);
   $('#model-label').textContent = data.model;
   $('#connection-dot').classList.toggle('connected', data.hasKey);
   $('#key-status').textContent = data.hasKey ? 'Key saved on this PC' : 'Not connected';
@@ -76,12 +77,15 @@ function updateConfig(data) {
     const field = document.createElement('div'), label = document.createElement('label'), input = document.createElement('input'); input.id=`hotkey-${key}`; input.value=data.hotkeys[key]; input.maxLength=80; label.htmlFor=input.id; label.textContent=title; field.append(label,input); $('#hotkey-fields').append(field);
   }
 }
+function renderEdgeStatus(data){if(config)config.edgeBackground=Boolean(data.backgroundAllowed);$('#edge-status').textContent=(data.connected?'Connected. ':'Not connected. ')+(data.backgroundAllowed?'Automatic minimized launches enabled. ':'Automatic minimized launches off. ')+(data.detail||'');$('#edge-disable').hidden=!data.backgroundAllowed;}
 window.clicky.onEvent(({ type, data }) => {
+  if(type==='edge-status')renderEdgeStatus(data);
+  if (type === 'voice-notice') { notify(data); $('#microphone-result').textContent=data; }
   if (type === 'state') setState(data);
   if (type === 'message') message(data);
   if (type === 'error') { notify(data); if ($('#voice-feedback').textContent || busy) { $('#voice-feedback').hidden=false; $('#voice-feedback').textContent=data; $('#microphone-result').textContent=data; } }
   if (type === 'voice-ready') {
-    const text=`Listening${data.language ? ' · '+data.language : ''}. Speak now, then pause to finish.`;
+    const text=`Listening${data.provider ? ' · '+data.provider : ''}${data.language ? ' · '+data.language : ''}. Speak now, then pause to finish.`;
     $('#voice-feedback').hidden=false; $('#voice-feedback').textContent=text; $('#microphone-result').textContent=text;
   }
   if (type === 'voice-heard') { $('#voice-feedback').hidden=false; $('#voice-feedback').textContent='Heard: '+data; $('#microphone-result').textContent='Heard: '+data; }
@@ -127,6 +131,10 @@ $('#test-key').onclick = safeTask(async () => {
   try { $('#test-result').textContent=await call('test-key'); } catch(e) { $('#test-result').textContent=e.message; }
   finally { $('#test-key').disabled=false; }
 });
+$('#voice-provider').onchange=()=>$('#edge-options').hidden=$('#voice-provider').value!=='edge';
+$('#edge-setup').onclick=safeTask(async()=>renderEdgeStatus(await call('edge-setup')));
+$('#edge-close').onclick=safeTask(async()=>renderEdgeStatus(await call('edge-close')));
+$('#edge-disable').onclick=safeTask(async()=>{const saved=await call('save-settings',{...config,edgeBackground:false});config.edgeBackground=saved.edgeBackground;renderEdgeStatus(await call('edge-status'));});
 $('#voice-test').onclick = safeTask(async () => { $('#microphone-result').textContent='Starting microphone test…'; await call('voice-test'); });
 $('#voice-test-stop').onclick = safeTask(() => call('stop'));
 $$('[data-audio-settings]').forEach(button=>button.onclick=safeTask(()=>call('windows-audio-settings',button.dataset.audioSettings)));
@@ -145,7 +153,7 @@ $('#load-voices').onclick = safeTask(async () => {
 });
 $('#settings-form').onsubmit = safeTask(async e => {
   e.preventDefault();
-  const value={ ...config, model:$('#model').value.trim(),voice:$('#voice-select').value,speechLanguage:$('#speech-language').value,notch:$('#notch-enabled').checked,rate:Number($('#rate').value),speak:$('#speak').checked,buddy:$('#buddy').checked,askBeforeActions:$('#ask-before').checked,startWithWindows:$('#start-windows').checked,screenContext:$('#screen-context').checked,hotkeys:{} };
+  const value={ ...config, model:$('#model').value.trim(),voice:$('#voice-select').value,speechLanguage:$('#speech-language').value,voiceProvider:$('#voice-provider').value,edgeLanguage:$('#edge-language').value.trim(),edgeFallback:$('#edge-fallback').checked,notch:$('#notch-enabled').checked,rate:Number($('#rate').value),speak:$('#speak').checked,buddy:$('#buddy').checked,askBeforeActions:$('#ask-before').checked,startWithWindows:$('#start-windows').checked,screenContext:$('#screen-context').checked,hotkeys:{} };
   for (const key of Object.keys(shortcutInfo)) value.hotkeys[key]=$(`#hotkey-${key}`).value.trim();
   const key=$('#api-key').value.trim() || undefined;
   const saved=await call('save-settings',value,key); updateConfig(saved); $('#save-result').textContent='✓ Settings saved on this PC';

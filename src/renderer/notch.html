@@ -267,7 +267,71 @@
                 <legend>
                   <svg><use href="#i-mic" /></svg>Voice & listening
                 </legend>
-                <label for="speech-language">Recognition language</label>
+                <label for="voice-provider">Voice input provider</label>
+                <select id="voice-provider">
+                  <option value="windows">Windows speech · local</option>
+                  <option value="edge">
+                    Microsoft Edge · online, experimental
+                  </option>
+                </select>
+                <div id="edge-options" class="edge-options" hidden>
+                  <strong>A real Edge helper—not hidden Electron speech</strong>
+                  <p>
+                    First setup opens a visible dedicated Edge window for
+                    microphone permission and a test. You can then explicitly
+                    enable minimized background launches. Audio may go to
+                    Microsoft’s online speech service. Permission, language
+                    support and background operation are not guaranteed. No
+                    separate speech API key is required.
+                  </p>
+                  <label for="edge-language">Edge input language</label
+                  ><input
+                    id="edge-language"
+                    value="en-US"
+                    maxlength="40"
+                    placeholder="en-US or bn-BD"
+                  />
+                  <small
+                    >Edge languages do not require a Windows recognition pack.
+                    Availability depends on Edge and its online service.</small
+                  >
+                  <label class="setting-switch"
+                    ><span
+                      ><strong>Fall back to Windows speech</strong
+                      ><small
+                        >If Edge fails before finalization, switch locally and
+                        ask you to repeat. No replay of released turns or typed
+                        dictation.</small
+                      ></span
+                    ><input id="edge-fallback" type="checkbox" checked
+                  /></label>
+                  <div class="button-row">
+                    <button
+                      id="edge-setup"
+                      class="outline-button"
+                      type="button"
+                    >
+                      Open visible Edge setup ↗</button
+                    ><button id="edge-close" class="quiet-button" type="button">
+                      Close helper
+                    </button>
+                  </div>
+                  <p id="edge-status" role="status">
+                    Helper not connected. Save your provider preference before
+                    using the notch microphone.
+                  </p>
+                  <button
+                    id="edge-disable"
+                    type="button"
+                    class="quiet-button"
+                    hidden
+                  >
+                    Disable automatic minimized launches
+                  </button>
+                </div>
+                <label for="speech-language"
+                  >Windows recognition / fallback language</label
+                >
                 <div class="input-action">
                   <select id="speech-language">
                     <option value="">
@@ -297,7 +361,8 @@
                   </button>
                 </div>
                 <p id="mic-result" role="status">
-                  Local test. No API key, screenshots or AI requests.
+                  Test saved provider. No AI key, screenshots or typing. Edge
+                  recognition is online.
                 </p>
                 <div class="audio-links">
                   <button type="button" data-audio="microphone">
@@ -500,7 +565,9 @@
           ></div>
         </div>
         <footer class="app-footer">
-          <span><i></i> A little help. Entirely on your terms.</span
+          <span
+            ><i></i>
+            <span id="input-provider">Input: Windows (local)</span></span
           ><span id="model-label">OpenRouter</span>
         </footer>
       </div>

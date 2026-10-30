@@ -19,7 +19,8 @@ const crypto = require("node:crypto");
 const { Settings } = require("./lib/settings");
 const { complete } = require("./lib/llm");
 const { runAgent } = require("./lib/agent");
-const { Speech } = require("./speech");
+const { Voice } = require("./voice");
+const { EdgeVoice } = require("./edge-voice");
 const { Notch } = require("./notch");
 const { Tasks } = require("./lib/tasks");
 const { Keys } = require("./keys");
@@ -35,6 +36,8 @@ if (smokeMode) {
   app.setPath("userData", process.env.HEYCLICKY_TEST_USER_DATA);
 }
 
+let edge,
+  edgeClosing = false;
 let panel,
   tray,
   settings,
@@ -584,6 +587,7 @@ function listen(mode, held = false) {
         setState("listening");
         emit("voice-ready", {
           language: event.language,
+          provider: event.provider || "windows",
           test: mode === "test",
           held,
         });
@@ -654,7 +658,10 @@ function toggleDictation() {
       },
       (event) => {
         setState("dictating");
-        emit("voice-ready", { language: event.language });
+        emit("voice-ready", {
+          language: event.language,
+          provider: event.provider || "windows",
+        });
       },
       (e) => {
         stop();
@@ -742,6 +749,7 @@ function installIPC() {
   });
   handle("get-settings", () => ({
     ...settings.public(),
+    edgeStatus: edge?.status(),
     platform: process.platform,
     version: app.getVersion(),
     state,
@@ -758,6 +766,10 @@ function installIPC() {
     const next = validate(value),
       previous = settings.value;
     try {
+      if (next.edgeBackground && !settings.value.edgeBackground)
+        throw Error(
+          "Enable background use from the visible Edge helper after a successful test.",
+        );
       registerHotkeys(next);
       const saved = settings.save(next, key);
       app.setLoginItemSettings({
@@ -766,6 +778,8 @@ function installIPC() {
       });
       broadcast("buddy", next.buddy);
       notch?.setEnabled(next.notch);
+      edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
+      emit("edge-status", edge.status());
       if (!next.notch) {
         panel.show();
         panel.focus();
@@ -786,6 +800,18 @@ function installIPC() {
   });
   handle("voices", () => speech.voices());
   handle("speech-diagnostics", () => speech.diagnostics());
+  handle("edge-status", () => edge.status());
+  handle("edge-setup", () => {
+    if (controller || listeningMode || requestRunning)
+      throw Error("Stop the current task before opening Edge setup.");
+    return edge.openSetup();
+  });
+  handle("edge-close", async () => {
+    if (controller || listeningMode || requestRunning)
+      throw Error("Stop voice/task activity first.");
+    await edge.dispose();
+    return edge.status();
+  });
   handle("voice-test", () => {
     if (controller || listeningMode)
       throw Error("Stop the current task before testing the microphone.");
@@ -836,7 +862,7 @@ function installIPC() {
         type: "warning",
         title: "Delete local data?",
         message:
-          "Delete your encrypted key, settings and conversation, then quit?",
+          "Close the dedicated Edge helper, delete its profile/permissions plus your encrypted key, settings and conversation, then quit?",
         buttons: ["Cancel", "Delete and quit"],
         defaultId: 0,
         cancelId: 0,
@@ -847,7 +873,15 @@ function installIPC() {
     stop();
     history = [];
     app.setLoginItemSettings({ openAtLogin: false });
+    try {
+      await edge.dispose({ deleteProfile: true });
+    } catch {
+      throw Error(
+        "Could not remove the dedicated Edge profile. Close only its helper window and retry Delete local data. Your saved key/settings have not been deleted yet.",
+      );
+    }
     settings.delete();
+    edgeClosing = true;
     await session.defaultSession.clearStorageData();
     await session.defaultSession.clearCache();
     quitting = true;
@@ -923,7 +957,27 @@ else {
     .whenReady()
     .then(() => {
       settings = new Settings(app.getPath("userData"), safeStorage);
-      speech = new Speech();
+      edge = new EdgeVoice({
+        userData: app.getPath("userData"),
+        native,
+        getBackground: () => settings.value.edgeBackground,
+        onBackground: (allowed) => {
+          settings.save({ ...settings.value, edgeBackground: allowed });
+          emit("edge-status", edge.status());
+        },
+        onStatus: (data) => emit("edge-status", data),
+      });
+      speech = new Voice({
+        edge,
+        getSettings: () => settings.value,
+        notify: (text) => {
+          if (listeningMode) {
+            if (heldTurn) heldTurn.ready = false;
+            setState("starting");
+          }
+          emit("voice-notice", text);
+        },
+      });
       keys = new Keys(
         native,
         (name) => {
@@ -1040,11 +1094,19 @@ else {
       dialog.showErrorBox("HeyClicky could not start", e.message);
       app.quit();
     });
-  app.on("before-quit", () => {
+  app.on("before-quit", (event) => {
     quitting = true;
     keys?.stop();
     stop();
     globalShortcut.unregisterAll();
+    if (edge && !edgeClosing) {
+      event.preventDefault();
+      edgeClosing = true;
+      edge
+        .dispose()
+        .catch(() => {})
+        .finally(() => app.quit());
+    }
   });
   app.on("window-all-closed", () => {});
 }

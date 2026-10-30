@@ -257,6 +257,15 @@ function renderThread() {
 }
 function fillSettings(data) {
   config = data;
+  $("#voice-provider").value = data.voiceProvider || "windows";
+  $("#edge-language").value = data.edgeLanguage || "en-US";
+  $("#edge-fallback").checked = data.edgeFallback !== false;
+  $("#edge-options").hidden = $("#voice-provider").value !== "edge";
+  $("#input-provider").textContent =
+    data.voiceProvider === "edge"
+      ? "Preferred input: Edge (online)"
+      : "Input: Windows (local)";
+  if (data.edgeStatus) renderEdgeStatus(data.edgeStatus);
   $("#connect-card").hidden = data.hasKey;
   $("#key-status").textContent = data.hasKey ? "Key saved" : "Not connected";
   $("#model-label").textContent = data.model;
@@ -330,7 +339,24 @@ function showApproval(data) {
     $("#deny").focus();
   }
 }
+function renderEdgeStatus(data) {
+  if (config) config.edgeBackground = Boolean(data.backgroundAllowed);
+  $("#edge-status").textContent =
+    (data.connected ? "Connected. " : "Not connected. ") +
+    (data.backgroundAllowed
+      ? "Minimized launches enabled. "
+      : "Automatic minimized launches are off. ") +
+    (data.detail || "");
+  $("#edge-disable").hidden = !data.backgroundAllowed;
+}
 function appEvent({ type, data }) {
+  if (type === "edge-status") renderEdgeStatus(data);
+  if (type === "voice-notice") {
+    notify(data);
+    $("#voice-transcript").hidden = false;
+    $("#voice-transcript").textContent = data;
+    $("#mic-result").textContent = data;
+  }
   if (type === "state") renderLayout({ ...layout, state: data });
   if (type === "tasks") {
     jobs = data;
@@ -349,7 +375,11 @@ function appEvent({ type, data }) {
   if (type === "settings-open") task(() => open("settings"))();
   if (type === "approval") showApproval(data);
   if (type === "voice-ready") {
-    const text = `Listening${data.language ? " · " + data.language : ""}. ${data.held ? "Release to send." : "Speak, then pause to finish."}`;
+    $("#input-provider").textContent =
+      data.provider === "edge"
+        ? "Listening with Edge (online)"
+        : "Listening with Windows (local)";
+    const text = `Listening${data.provider ? " · " + data.provider : ""}${data.language ? " · " + data.language : ""}. ${data.held ? "Release to send." : "Speak, then pause to finish."}`;
     $("#voice-transcript").hidden = false;
     $("#voice-transcript").textContent = text;
     $("#mic-result").textContent = text;
@@ -514,6 +544,22 @@ $("#test-key").onclick = task(async () => {
     $("#test-key").disabled = false;
   }
 });
+$("#voice-provider").onchange = () =>
+  ($("#edge-options").hidden = $("#voice-provider").value !== "edge");
+$("#edge-setup").onclick = task(async () =>
+  renderEdgeStatus(await call("edge-setup")),
+);
+$("#edge-close").onclick = task(async () =>
+  renderEdgeStatus(await call("edge-close")),
+);
+$("#edge-disable").onclick = task(async () => {
+  const saved = await call("save-settings", {
+    ...config,
+    edgeBackground: false,
+  });
+  config.edgeBackground = saved.edgeBackground;
+  renderEdgeStatus(await call("edge-status"));
+});
 $("#voice-test").onclick = task(() => call("voice-test"));
 $$("[data-audio]").forEach(
   (b) =>
@@ -557,6 +603,9 @@ $("#settings-form").onsubmit = task(async (e) => {
       model: $("#model").value.trim(),
       voice: $("#voice-select").value,
       speechLanguage: $("#speech-language").value,
+      voiceProvider: $("#voice-provider").value,
+      edgeLanguage: $("#edge-language").value.trim(),
+      edgeFallback: $("#edge-fallback").checked,
       rate: Number($("#rate").value),
       hotkeys: {},
     };

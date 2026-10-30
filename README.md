@@ -6,11 +6,18 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 ![Notch-centered HeyClicky Community workspace](docs/notch-workspace.png)
 
-## New in 1.3.0 — the notch is the workspace
+## New in 1.4.0 — optional Microsoft Edge voice input
+
+- **Real Edge Web Speech recognition**, not Electron speech or a paid speech API. Windows speech remains the default and fallback. Edge needs installed Microsoft Edge, internet and supported language/service availability; there is no separate speech API key and no unlimited/free-service or accuracy guarantee.
+- **Visible first-time setup:** grant microphone access and complete a real recognition test in a dedicated Edge profile. Only then can you explicitly enable future minimized launches. The stable site/profile usually remembers permission, but may ask again.
+- **Minimized, not invisible/headless:** Edge stays running and microphone indicators remain intact. Browser updates, policies, network errors, suspension or user-gesture requirements can interrupt recognition. A fallback notice asks you to repeat with Windows; released turns and already delivered dictation are never replayed.
+
+### The notch workspace (introduced in 1.3)
+
 
 - **Home, Chat and Settings inside the notch**, including the API-key form, speech diagnostics, hotkeys, privacy preferences and complete approval cards. The old desktop panel is only a fallback when the notch is disabled.
 - **Three native window sizes:** small idle capsule, non-activating hover peek, and a focusable expanded workspace. Hover never takes typing focus; deliberately opening Chat/Settings enables input. Collapse shrinks the real native input area, not just its visible contents.
-- **True hold-to-talk:** hold the global Talk/Agent shortcut or the on-screen microphone button, wait for Listening, speak, and release to finalize. Pauses while holding do not submit. Short taps, releasing before readiness, pointer cancellation, and Stop discard the turn. Partial transcripts and the waveform use Windows recognition/audio events, not simulated audio levels. The top microphone icon remains a tap-and-pause alternative.
+- **True hold-to-talk:** hold the global Talk/Agent shortcut or the on-screen microphone button, wait for Listening, speak, and release to finalize. Pauses while holding do not submit. Short taps, releasing before readiness, pointer cancellation, and Stop discard the turn. Partial transcripts use real recognition events. The waveform uses real Windows audio levels; Edge does not expose audio levels, so it is not simulated for Edge input. The top microphone icon remains a tap-and-pause alternative.
 - **Session task cards:** queued/running/approval/done/failed/stopped states, observed tool activity, results and follow-ups with independent task text context. Desktop jobs deliberately run **one at a time**; they are not parallel computer-control agents. The peek keeps progress visible when the full workspace is tucked away. Stop cancels the active and queued work; individual queued tasks can also be cancelled.
 - **Readable teaching overlays:** numbered explanation cards and optional bottom-screen answer captions. Captions show a bounded response excerpt, not word-synchronized subtitles. Drawings remain click-through; the notch is excluded from screenshots and desktop input.
 - **Refined interface:** consistent SVG icons, warm neutral surfaces, softer accent colors, better spacing, reduced-motion support, and an interactive, clearly labelled browser preview. No sample tasks are shown unless explicitly loaded in preview controls.
@@ -19,18 +26,18 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 1. Open this repository's **[Windows installer workflow](https://github.com/victor123258/HeyClicky/actions/workflows/windows.yml)**.
 2. Select the latest **successful** run for `arena/f3c3e0ee-heyclicky` (or `main` after merging). Download **HeyClicky-Windows-x64** from the Artifacts section. GitHub requires you to sign in to download workflow artifacts. Extract the ZIP.
-3. Double-click **`HeyClicky-Setup-1.3.0.exe`**. The per-user installer needs no administrator permission, creates shortcuts, and launches the app. Or run **`HeyClicky-Portable-1.3.0.exe`** without installation.
+3. Double-click **`HeyClicky-Setup-1.4.0.exe`**. The per-user installer needs no administrator permission, creates shortcuts, and launches the app. Or run **`HeyClicky-Portable-1.4.0.exe`** without installation.
 4. On first launch, paste your own [OpenRouter API key](https://openrouter.ai/settings/keys) in Settings, choose a vision/tool-capable model, and click **Save settings**, then **Test saved connection**. Your OpenRouter account needs credit. The test checks text access; image/tool support is checked during actual use.
 
 The installer is **unsigned**. Windows may show SmartScreen or your organization may block it. Verify that you downloaded it from your own trusted build; do not disable security protections. Code signing and automatic updates are not configured. Workflow artifacts expire after 30 days; rerun the workflow to rebuild. Executables are generated by CI, not committed to Git.
 
-**Requirements:** x64 Windows 10/11, internet access to OpenRouter and your chosen model, microphone for voice, Windows PowerShell 5.1 and a Windows speech-recognition language pack. This is an Electron app; Node.js is **not** needed to run the installer or portable executable.
+**Requirements:** x64 Windows 10/11, internet access to OpenRouter and your chosen model, microphone for voice, Windows PowerShell 5.1 and a Windows speech-recognition language pack for local input/fallback, or Microsoft Edge for optional online input. This is an Electron app; Node.js is **not** needed to run the installer or portable executable.
 
 ## What is implemented
 
 | Capability | This build |
 |---|---|
-| Screen-aware conversation | Typed or Windows speech input, OpenRouter vision models, spoken Windows voice output |
+| Screen-aware conversation | Typed, Windows local or optional Edge online speech input, OpenRouter vision models, spoken Windows voice output |
 | Teaching and on-screen guidance | Labelled pointers, boxes, arrows, circles, numbered explanation cards and optional answer captions |
 | Top-of-screen notch | Idle, hover-peek and full Home / Chat / Settings workspace on the primary display; focus only on explicit expansion |
 | Task cards | Session queue, observed activity, exact-argument approvals, results, cancellation and per-task text follow-ups |
@@ -38,7 +45,7 @@ The installer is **unsigned**. Windows may show SmartScreen or your organization
 | Voice agents | Agent hotkey or `agent …` prefix starts a bounded tool loop |
 | Desktop actions | Click, double/right click, Unicode typing and SendKeys; uses the selected display's coordinates |
 | Agent tools | PowerShell, bounded text-file reads/writes, HTTPS text fetch, browser URLs, fresh screenshots and drawings |
-| Dictation | Continuous Windows speech recognition types into the currently focused application |
+| Dictation | Windows or Edge speech recognition types into the currently focused application |
 | Safety | Exact-argument Allow/Deny card, two-minute approval timeout, Stop button and global stop hotkey |
 | Multi-monitor | Capture the display under the mouse at the start of a request; overlay on each display; Windows DPI coordinate conversion |
 | Preferences | Model ID, Windows voice/rate, hotkeys, screen context, speak answers, cursor buddy, desktop approval toggle, launch on login |
@@ -49,7 +56,7 @@ The installer is **unsigned**. Windows may show SmartScreen or your organization
 
 - No official account login, subscriptions, Free/Pro/Max plans, credits or backend. **You pay OpenRouter for usage**; this app adds no subscription.
 - **No native Gmail, Notion or Google Sheets OAuth connectors.** Desktop/browser automation is not equivalent to those integrations. Do not give the agent passwords, tokens or session cookies.
-- Turn-based speech, not a hosted realtime voice stream. Speech accuracy and languages depend on Windows' installed recognizer. It does not listen for a wake word.
+- Turn-based speech, not a hosted realtime voice stream. Speech accuracy and languages depend on the selected provider. Edge input may send audio to Microsoft; Windows local input needs installed recognizers. It does not listen for a wake word.
 - No signed installer, updater or macOS build. No guarantee of exact visual or behavioral parity with the official app.
 - No conversational memory between launches. Activity is session-only. No interactive 3D models, image search cards, routines, Chrome extension, or concurrent desktop agents. These are not implied by the UI redesign.
 
@@ -66,7 +73,18 @@ The installer is **unsigned**. Windows may show SmartScreen or your organization
 
 Type a question and press Enter (Shift+Enter for a new line). **Talk** can only see the screen and draw; it cannot click, type or execute commands. **Agent** enables desktop tools. Saying or typing `agent` at the beginning also selects agent mode. Use Chat → Clear to clear the session after stopping active work. The plus buttons start a new input/thread without deleting history. Collapsing the notch keeps the tray running; use **Quit** in the tray to fully exit.
 
-### If voice input does not work
+### Set up optional Edge input
+
+1. Stop active voice/tasks. Open Settings → Voice & listening, choose **Microsoft Edge**, and enter an input language such as `en-US`. Edge language availability is independent of Windows recognition packs; support for a tag (including `bn-BD`) is not guaranteed.
+2. Click **Open visible Edge setup**. This uses a dedicated `%APPDATA%\heyclicky-community\edge-voice-profile`, never your personal browser profile. Its stable origin is `http://127.0.0.1:21843`. If that port is occupied, setup fails rather than changing the permission origin.
+3. In the visible helper, click **Allow microphone & test Edge speech**, grant permission, say a sentence and pause. This tests actual recognition—not merely browser API presence—and makes no AI request. Audio may be processed by Microsoft's online speech service, including during this test.
+4. Optionally check the disclosure and choose **Enable background use & minimize** after a successful test. Otherwise keep the helper window open for voice input. This is not a silent/headless service and cannot bypass permission or hide recording indicators.
+5. Back in app settings, **Save settings**, then use **Test microphone** or hold-to-talk. The input source and helper status are shown. If fallback is enabled, an Edge failure before finalization switches to Windows and asks you to repeat after Listening appears. Windows fallback still requires an installed recognition language pack. No fallback occurs after release or delivered dictation.
+6. **Close helper** disconnects Edge and stops its recording; later use may relaunch it if minimized launches were approved. **Disable automatic minimized launches** revokes that launch preference but does not close an already open helper. To stop all Edge use, close the helper and save Windows as your provider. Quit also requests closure of only the dedicated helper window.
+
+Permission can be remembered for the stable origin/profile, but updates, cleared permissions or policies can prompt again. Minimized recognition can stop or require another visible gesture. Use the visible setup again or select Windows input. No direct/private Microsoft speech endpoint is used. Microsoft/Edge service terms and retention apply; an AI key is never passed to this browser.
+
+### If Windows voice input does not work
 
 1. Open Settings → Voice & listening → **Find languages**. Windows speech recognition requires an installed recognition engine; a text-to-speech voice is **not** enough. Install a Speech pack under Windows Settings → Time & language → Language & region → Language options if none are listed. Only languages supported by Windows' System.Speech engine appear; not every Windows display/typing language supports recognition.
 2. Select an installed **Recognition language**, then **Save settings**. Automatic uses your Windows UI language if installed, otherwise the first installed recognizer. The output voice is a separate setting.
@@ -90,9 +108,9 @@ For dictation, put focus in the destination app **before** pressing the global h
 
 The app sends the current request, recent conversation text (per-task context for agent follow-ups), requested screenshot, and approved tool results directly to `https://openrouter.ai/api/v1/chat/completions`. OpenRouter forwards them to your selected model provider. Retention depends on [OpenRouter privacy settings](https://openrouter.ai/settings/privacy) and the provider. No app-owned AI backend or telemetry is configured.
 
-Screenshots are JPEGs kept in process memory and not intentionally written to disk; OS paging/crash handling and remote providers are outside this guarantee. Prior screenshots and raw tool payloads are not retained in conversation history. Settings and an encrypted key are stored in Electron's Windows user-data folder (normally `%APPDATA%\heyclicky-community\settings.json`). DPAPI encryption is tied to your Windows user; no plaintext fallback. The portable executable also uses this folder and is **not fully self-contained**. Global hold-to-talk uses a local helper that polls only the configured Talk/Agent key combinations for release; it does not record arbitrary typing or send keyboard events anywhere. Audio and partial transcripts stay local until a completed voice request is submitted.
+Screenshots are JPEGs kept in process memory and not intentionally written to disk; OS paging/crash handling and remote providers are outside this guarantee. Prior screenshots and raw tool payloads are not retained in conversation history. Settings and an encrypted key are stored in Electron's Windows user-data folder (normally `%APPDATA%\heyclicky-community\settings.json`). DPAPI encryption is tied to your Windows user; no plaintext fallback. The portable executable also uses this folder and is **not fully self-contained**. Global hold-to-talk uses a local helper that polls only the configured Talk/Agent key combinations for release; it does not record arbitrary typing or send keyboard events anywhere. With Windows input, audio and partial transcripts stay local until a completed voice request is submitted. With optional Edge input, audio may be sent to Microsoft during recognition (including tests, partial speech and subsequently cancelled turns); Stop cannot retract already processed audio. Partial transcripts are not submitted to the AI before release. The Edge helper receives only voice commands/language and a per-run local capability—not your OpenRouter key, screen or conversation. Its dedicated browser profile persists permission/site data; browser caches and Microsoft retention are outside the app’s in-memory-transcript guarantee.
 
-Settings → **Delete local data** clears the saved key/settings, conversation, Electron cache and browser storage, disables login startup and quits. It does not delete files an agent created, remote provider records, or the installed app itself. Uninstall the installed version from Windows Settings.
+Settings → **Delete local data** requests closure of the dedicated Edge window, removes its profile/remembered site permissions, and clears the saved key/settings, conversation, Electron cache and browser storage, disables login startup and quits. If the Edge profile is locked, deletion reports a retryable error before deleting your saved key/settings. It does not delete files an agent created, remote provider records, or the installed app itself. Uninstall the installed version from Windows Settings.
 
 ## Build from source (Windows)
 
@@ -127,6 +145,9 @@ src/main/index.js       Windows lifecycle, IPC, approvals, captures and tool exe
 src/main/lib/          Testable model client, bounded agent, schemas and encrypted settings
 src/main/native.js     Bounded PowerShell process execution and cancellation
 src/main/speech.js     Bounded, cancellable Windows speech helper lifecycle
+src/main/voice.js      Provider selection and guarded fallback
+src/main/edge-voice.js Authenticated loopback bridge and dedicated Edge lifecycle
+src/edge-voice/        Visible Edge permission/test/consent helper
 src/main/notch.js      Three-state notch workspace and capture/input suspension
 src/main/keys.js       Scoped voice-shortcut release monitoring
 src/main/lib/tasks.js  Session task queue, lifecycle and follow-up context
@@ -139,7 +160,7 @@ test/                  Node test runner: agent safety, settings, tools, HTTP and
 
 ## Validation and known limits
 
-Automated tests cover denial, cancellation during approval, talk-mode isolation, tool argument validation, step limits, encrypted-key round trips, HTTP error handling, and browser DOM interactions. CI also parses PowerShell, compiles/probes native input, held-speech and key-release helpers without opening a microphone, enumerates installed voices and speech-recognition engines, and launches the actual Electron panel/notch with isolated user data to verify startup, expansion/collapse, and the restricted notch IPC bridge. These do **not** prove live desktop/microphone behavior or model quality.
+Automated tests cover denial, cancellation during approval, talk-mode isolation, tool argument validation, step limits, encrypted-key round trips, HTTP error handling, and browser DOM interactions. CI also parses PowerShell, compiles/probes native input, held-speech, Edge-window and key-release helpers without opening a microphone, enumerates installed voices and speech-recognition engines, and launches the actual Electron panel/notch with isolated user data to verify startup, expansion/collapse, and the restricted notch IPC bridge. These do **not** prove live desktop/microphone behavior or model quality.
 
 Before distributing broadly, run [the Windows acceptance checklist](docs/WINDOWS-TESTING.md) on an actual Windows 10/11 machine with a microphone, OpenRouter credit and mixed-DPI monitors. No live paid model call or physical microphone test was run in the Linux coding workspace.
 

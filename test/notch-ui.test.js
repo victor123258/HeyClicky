@@ -138,3 +138,35 @@ test("keyboard hold button waits for release; cancel does not create a message",
     dom.window.close();
   }
 });
+test("Edge provider controls persist without granting background consent in the renderer", async () => {
+  const dom = await setup();
+  try {
+    const d = dom.window.document;
+    assert.equal(d.querySelector("#edge-options").hidden, true);
+    d.querySelector("#voice-provider").value = "edge";
+    d.querySelector("#voice-provider").dispatchEvent(
+      new dom.window.Event("change"),
+    );
+    assert.equal(d.querySelector("#edge-options").hidden, false);
+    assert.match(d.querySelector("#edge-options").textContent, /Microsoft/);
+    d.querySelector("#edge-language").value = "bn-BD";
+    d.querySelector("#edge-fallback").checked = false;
+    d.querySelector("#settings-form").dispatchEvent(
+      new dom.window.Event("submit", { cancelable: true }),
+    );
+    await wait();
+    const saved = (await dom.window.notchDemo.call("get-settings")).data;
+    assert.equal(saved.voiceProvider, "edge");
+    assert.equal(saved.edgeLanguage, "bn-BD");
+    assert.equal(saved.edgeFallback, false);
+    assert.equal(saved.edgeBackground, false);
+    d.querySelector("#edge-setup").click();
+    await wait();
+    assert.match(
+      d.querySelector("#edge-status").textContent,
+      /Design preview only/,
+    );
+  } finally {
+    dom.window.close();
+  }
+});

@@ -4,7 +4,7 @@ const allowed = [
   "save-settings",
   "test-key",
   "voices",
-  "speech-diagnostics",
+  "speech-diagnostics", "edge-status", "edge-setup", "edge-close",
   "voice-test",
   "windows-audio-settings",
   "ask",

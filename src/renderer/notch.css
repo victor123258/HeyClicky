@@ -1511,3 +1511,31 @@ body.browser-preview {
     scroll-behavior: auto !important;
   }
 }
+
+.edge-options {
+  border: 1px solid #dce5ce;
+  background: #f4f7ee;
+  border-radius: 9px;
+  padding: 13px;
+  margin-top: 12px;
+}
+.edge-options > strong {
+  font-size: 10px;
+  color: #586c43;
+}
+.edge-options > p {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #59684b;
+  white-space: pre-wrap;
+}
+.edge-options > small {
+  font-size: 9px;
+  color: #647354;
+  line-height: 1.8;
+  display: block;
+  margin-top: 7px;
+}
+.edge-options .setting-switch {
+  border-bottom: 0;
+}
