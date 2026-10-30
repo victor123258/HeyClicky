@@ -51,3 +51,13 @@ These require an actual Windows desktop. Do not mark them complete based on unit
 - [ ] Disable desktop microphone permission or unplug/change default input, then Test microphone. Error is actionable and the UI returns to idle.
 - [ ] Speak non-ASCII words with a compatible language, pause, verify the exact transcript and one AI submission only after microphone closure.
 - [ ] Cancel, then quickly restart a voice turn; stale transcripts/exit events cannot submit the prior request. A failed startup or silent turn cannot leave the app indefinitely in Starting/Listening.
+
+## Notch-centered workspace and hold-to-talk (1.3.0)
+- [ ] Verify Home, complete Settings, Chat, queued task cards, follow-ups and exact-argument approvals work entirely inside the notch. Reload the renderer during approval; it must recover the same pending ID/arguments, not auto-approve.
+- [ ] Hover opens only a quick peek without taking focus; explicit navigation enables typing. Collapse changes native bounds to 232×40, peek to 432×300, expanded to 640×760 (clamped to work area).
+- [ ] Test global Talk/Agent hold shortcuts, including pauses longer than a phrase while holding. Only release submits. Test release of each modifier/key, quick taps, repeated keys, release before mic readiness, lock/sleep and stopped key helper.
+- [ ] Hold the on-screen mic with mouse, touch and keyboard. Release outside the button, cancel pointer capture or blur the window: cancel/no duplicate submissions. Use a supported installed language and test non-ASCII partial/final transcripts.
+- [ ] Compare waveform to actual microphone input; silence must not show a fabricated animated signal. No API request happens from partial transcripts.
+- [ ] Queue two desktop tasks: one runs while the other waits. Cancel the queued task; stop the current task during a command, approval and speech. Global Stop must cancel queued work too. Follow-ups reuse only that task's text context.
+- [ ] With the workspace collapsed, confirm task progress remains in the peek, captions remain on the correct display, and numbered teaching cards are readable and click-through. Toggle captions off.
+- [ ] Confirm no-notch fallback remains usable; quit old app before trying a new portable build. Installer upgrade retains encrypted key/settings.

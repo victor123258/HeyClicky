@@ -1,13 +1,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const DEFAULTS = Object.freeze({ model: 'openai/gpt-4.1-mini', voice: '', speechLanguage: '', notch: true, rate: 0, askBeforeActions: true, buddy: true, screenContext: true, speak: true, startWithWindows: false, hotkeys: { talk: 'CommandOrControl+Shift+Space', agent: 'CommandOrControl+Shift+A', dictate: 'CommandOrControl+Shift+D', panel: 'CommandOrControl+Shift+H', stop: 'CommandOrControl+Shift+X' } });
+const DEFAULTS = Object.freeze({ model: 'openai/gpt-4.1-mini', voice: '', speechLanguage: '', notch: true, captions: true, rate: 0, askBeforeActions: true, buddy: true, screenContext: true, speak: true, startWithWindows: false, hotkeys: { talk: 'CommandOrControl+Shift+Space', agent: 'CommandOrControl+Shift+A', dictate: 'CommandOrControl+Shift+D', panel: 'CommandOrControl+Shift+H', stop: 'CommandOrControl+Shift+X' } });
 function validate(input) {
   const s = { ...DEFAULTS, ...input, hotkeys: { ...DEFAULTS.hotkeys, ...input.hotkeys } };
   if (typeof s.model !== 'string' || !/^[\w.-]+\/[\w.\-:/]+$/.test(s.model) || s.model.length > 150) throw Error('Enter a valid provider/model ID.');
   if (typeof s.voice !== 'string' || s.voice.length > 200) throw Error('Invalid voice.');
   if (typeof s.speechLanguage !== 'string' || (s.speechLanguage && !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){1,3}$/.test(s.speechLanguage))) throw Error('Choose a valid speech recognition language.');
   if (!Number.isInteger(s.rate) || s.rate < -5 || s.rate > 5) throw Error('Voice rate must be between -5 and 5.');
-  for (const k of ['askBeforeActions', 'buddy', 'screenContext', 'speak', 'startWithWindows', 'notch']) if (typeof s[k] !== 'boolean') throw Error(`Invalid ${k}`);
+  for (const k of ['askBeforeActions', 'buddy', 'screenContext', 'speak', 'startWithWindows', 'notch', 'captions']) if (typeof s[k] !== 'boolean') throw Error(`Invalid ${k}`);
   const keys = Object.keys(DEFAULTS.hotkeys).map(k => s.hotkeys[k]);
   if (keys.some(k => typeof k !== 'string' || k.length > 80 || !k.includes('+')) || new Set(keys.map(k => k.toLowerCase())).size !== keys.length) throw Error('Hotkeys must be unique key combinations.');
   return Object.fromEntries(Object.keys(DEFAULTS).map(k => [k, s[k]]));

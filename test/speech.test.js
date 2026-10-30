@@ -71,3 +71,11 @@ test('selected recognition language is sent separately from output voice',()=>{
 test('diagnostics use non-recording recognizer enumeration mode',async()=>{
   const s=setup();const report=await s.speech.diagnostics();assert.deepEqual(report.languages,[]);assert.deepEqual(s.launches[0],['listen.ps1',['-Mode','probe']]);
 });
+test('held speech streams partials and real levels, and submits only on explicit release',()=>{
+ const s=setup();const partials=[],levels=[];
+ s.speech.listen('talk',text=>s.events.push(['text',text]),()=>{},e=>{throw e;},result=>s.events.push(['end',result.ok]),'en-US',{held:true,onPartial:t=>partials.push(t),onLevel:n=>levels.push(n)});
+ const c=s.children[0];c.stdin=new PassThrough();let input='';c.stdin.on('data',b=>input+=b.toString());
+ send(c,{type:'ready'});send(c,{type:'partial',text:'A partial question'});send(c,{type:'level',level:62});assert.equal(s.events.length,0);assert.deepEqual(partials,['A partial question']);assert.deepEqual(levels,[62]);
+ s.speech.finishListening();assert.equal(JSON.parse(input).action,'finish');assert.equal(s.launches[0][0],'hold-speech.ps1');assert.equal(s.launches[0][3].keepStdin,true);
+ send(c,{type:'text',text:'A final question'});c.emit('close',0);assert.deepEqual(s.events,[['text','A final question'],['end',true]]);
+});

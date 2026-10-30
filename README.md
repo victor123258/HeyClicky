@@ -4,21 +4,22 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 **Not the official HeyClicky app and not a full replacement for its hosted service.** No official code, branding assets, accounts or private APIs are used. See the feature comparison below. Built from the attached Windows app specification.
 
-![HeyClicky Community UI preview](docs/UI-preview.png)
+![Notch-centered HeyClicky Community workspace](docs/notch-workspace.png)
 
-## New in 1.2.0
+## New in 1.3.0 — the notch is the workspace
 
-![Expandable notch UI preview](docs/notch-preview.png)
-
-- **Expandable notch:** compact top-center companion on your primary display, hover/click to expand, Talk / Agent / Dictate / Stop / Chat quick controls, live task status and recognized text. It does not steal typing focus. Turn it off in Settings → Top-of-screen notch. It hides during screenshots and agent input, and respects display/taskbar work-area changes. Full action approval remains in the panel, not the compact notch.
-- **Voice reliability:** immediately flushed native protocol, installed-recognizer selection, configurable input language, startup/turn timeouts, complete UTF-8/final-line parsing, stderr draining, and clean microphone closure before submitting a question. Cancelled listeners cannot submit stale text.
-- **Microphone diagnostics:** Settings → Voice & personality → Find languages, then Test microphone. This test needs **no API key**, takes no screenshot, sends nothing to AI, and never types into another app. Windows microphone, sound and speech settings links help resolve device/permission/language problems.
+- **Home, Chat and Settings inside the notch**, including the API-key form, speech diagnostics, hotkeys, privacy preferences and complete approval cards. The old desktop panel is only a fallback when the notch is disabled.
+- **Three native window sizes:** small idle capsule, non-activating hover peek, and a focusable expanded workspace. Hover never takes typing focus; deliberately opening Chat/Settings enables input. Collapse shrinks the real native input area, not just its visible contents.
+- **True hold-to-talk:** hold the global Talk/Agent shortcut or the on-screen microphone button, wait for Listening, speak, and release to finalize. Pauses while holding do not submit. Short taps, releasing before readiness, pointer cancellation, and Stop discard the turn. Partial transcripts and the waveform use Windows recognition/audio events, not simulated audio levels. The top microphone icon remains a tap-and-pause alternative.
+- **Session task cards:** queued/running/approval/done/failed/stopped states, observed tool activity, results and follow-ups with independent task text context. Desktop jobs deliberately run **one at a time**; they are not parallel computer-control agents. The peek keeps progress visible when the full workspace is tucked away. Stop cancels the active and queued work; individual queued tasks can also be cancelled.
+- **Readable teaching overlays:** numbered explanation cards and optional bottom-screen answer captions. Captions show a bounded response excerpt, not word-synchronized subtitles. Drawings remain click-through; the notch is excluded from screenshots and desktop input.
+- **Refined interface:** consistent SVG icons, warm neutral surfaces, softer accent colors, better spacing, reduced-motion support, and an interactive, clearly labelled browser preview. No sample tasks are shown unless explicitly loaded in preview controls.
 
 ## Download & run
 
 1. Open this repository's **[Windows installer workflow](https://github.com/victor123258/HeyClicky/actions/workflows/windows.yml)**.
-2. Select the latest **successful** run for `arena/95bacdb1-heyclicky` (or `main` after merging). Download **HeyClicky-Windows-x64** from the Artifacts section. GitHub requires you to sign in to download workflow artifacts. Extract the ZIP.
-3. Double-click **`HeyClicky-Setup-1.2.0.exe`**. The per-user installer needs no administrator permission, creates shortcuts, and launches the app. Or run **`HeyClicky-Portable-1.2.0.exe`** without installation.
+2. Select the latest **successful** run for `arena/f3c3e0ee-heyclicky` (or `main` after merging). Download **HeyClicky-Windows-x64** from the Artifacts section. GitHub requires you to sign in to download workflow artifacts. Extract the ZIP.
+3. Double-click **`HeyClicky-Setup-1.3.0.exe`**. The per-user installer needs no administrator permission, creates shortcuts, and launches the app. Or run **`HeyClicky-Portable-1.3.0.exe`** without installation.
 4. On first launch, paste your own [OpenRouter API key](https://openrouter.ai/settings/keys) in Settings, choose a vision/tool-capable model, and click **Save settings**, then **Test saved connection**. Your OpenRouter account needs credit. The test checks text access; image/tool support is checked during actual use.
 
 The installer is **unsigned**. Windows may show SmartScreen or your organization may block it. Verify that you downloaded it from your own trusted build; do not disable security protections. Code signing and automatic updates are not configured. Workflow artifacts expire after 30 days; rerun the workflow to rebuild. Executables are generated by CI, not committed to Git.
@@ -30,8 +31,9 @@ The installer is **unsigned**. Windows may show SmartScreen or your organization
 | Capability | This build |
 |---|---|
 | Screen-aware conversation | Typed or Windows speech input, OpenRouter vision models, spoken Windows voice output |
-| Teaching and on-screen guidance | Model can draw labelled pointers, boxes, arrows and circles on transparent, click-through overlays |
-| Top-of-screen notch | Expandable, non-focus-stealing quick controls on the primary display; task status, transcript/answer preview and stop |
+| Teaching and on-screen guidance | Labelled pointers, boxes, arrows, circles, numbered explanation cards and optional answer captions |
+| Top-of-screen notch | Idle, hover-peek and full Home / Chat / Settings workspace on the primary display; focus only on explicit expansion |
+| Task cards | Session queue, observed activity, exact-argument approvals, results, cancellation and per-task text follow-ups |
 | Cursor buddy | Original cursor character follows your mouse, changes color with state and moves to annotations |
 | Voice agents | Agent hotkey or `agent …` prefix starts a bounded tool loop |
 | Desktop actions | Click, double/right click, Unicode typing and SendKeys; uses the selected display's coordinates |
@@ -49,34 +51,34 @@ The installer is **unsigned**. Windows may show SmartScreen or your organization
 - **No native Gmail, Notion or Google Sheets OAuth connectors.** Desktop/browser automation is not equivalent to those integrations. Do not give the agent passwords, tokens or session cookies.
 - Turn-based speech, not a hosted realtime voice stream. Speech accuracy and languages depend on Windows' installed recognizer. It does not listen for a wake word.
 - No signed installer, updater or macOS build. No guarantee of exact visual or behavioral parity with the official app.
-- No conversational memory between launches. Activity is session-only.
+- No conversational memory between launches. Activity is session-only. No interactive 3D models, image search cards, routines, Chrome extension, or concurrent desktop agents. These are not implied by the UI redesign.
 
 ## Everyday use
 
 | Default hotkey | Action |
 |---|---|
-| **Ctrl+Shift+Space** | Speak a question; pause to finish. Press again to cancel. |
-| **Ctrl+Shift+A** | Speak an agent task. |
+| **Ctrl+Shift+Space** | Hold, wait for Listening, speak, then release to send. |
+| **Ctrl+Shift+A** | Hold to speak an agent task; release to queue it. |
 | **Ctrl+Shift+D** | Start/stop dictation into the active window. |
-| **Ctrl+Shift+H** | Show/hide the panel. |
+| **Ctrl+Shift+H** | Open/collapse the notch workspace. |
 | **Ctrl+Shift+X** | Stop listening, speaking, requests, pending approvals and agent work. |
-| **Escape** (panel focused) | Stop everything. Escape is not a global shortcut. |
+| **Escape** (workspace focused) | Stop everything. Escape is not a global shortcut. |
 
-Type a question and press Enter (Shift+Enter for a new line). **Talk** can only see the screen and draw; it cannot click, type or execute commands. **Agent** enables desktop tools. Saying or typing `agent` at the beginning also selects agent mode. Use “New conversation” to clear in-memory conversation and stop the current task. Closing the panel keeps the tray running; use **Quit** in the tray to fully exit.
+Type a question and press Enter (Shift+Enter for a new line). **Talk** can only see the screen and draw; it cannot click, type or execute commands. **Agent** enables desktop tools. Saying or typing `agent` at the beginning also selects agent mode. Use Chat → Clear to clear the session after stopping active work. The plus buttons start a new input/thread without deleting history. Collapsing the notch keeps the tray running; use **Quit** in the tray to fully exit.
 
 ### If voice input does not work
 
-1. Open Settings → Voice & personality → **Find languages**. Windows speech recognition requires an installed recognition engine; a text-to-speech voice is **not** enough. Install a Speech pack under Windows Settings → Time & language → Language & region → Language options if none are listed. Only languages supported by Windows' System.Speech engine appear; not every Windows display/typing language supports recognition.
-2. Select an installed **Voice input language**, then **Save settings**. Automatic uses your Windows UI language if installed, otherwise the first installed recognizer. The output voice is a separate setting.
-3. Open **Microphone permissions** and enable both microphone access and **Let desktop apps access your microphone**. Under **Default input device**, choose and test your microphone. The app uses Windows' default input, not an independently selected device.
+1. Open Settings → Voice & listening → **Find languages**. Windows speech recognition requires an installed recognition engine; a text-to-speech voice is **not** enough. Install a Speech pack under Windows Settings → Time & language → Language & region → Language options if none are listed. Only languages supported by Windows' System.Speech engine appear; not every Windows display/typing language supports recognition.
+2. Select an installed **Recognition language**, then **Save settings**. Automatic uses your Windows UI language if installed, otherwise the first installed recognizer. The output voice is a separate setting.
+3. Open **Microphone permissions** and enable both microphone access and **Let desktop apps access your microphone**. Under **Input device**, choose and test your microphone. The app uses Windows' default input, not an independently selected device.
 4. Click **Test microphone**. Wait for **Listening · language** before speaking. Pause at the end. The result should show **Heard: …** without calling AI. Stop cancels it.
-5. If the local test works, add your OpenRouter key and use Talk. Input is phrase-based, not continuous realtime conversation; long pauses may end a question. Silence reports an error instead of leaving the app stuck indefinitely. The notch provides a Stop button even when the panel is hidden.
+5. If the local test works, add your OpenRouter key. Hold Talk, wait for Listening, speak, then release. Recognition continues across pauses until release (bounded to about 85 seconds). The small top microphone icon and microphone test use the tap-and-pause path. If keyboard release monitoring fails, use the on-screen hold button or restart. Modifier combinations with letters, numbers, function keys, Space, Enter, Tab and navigation keys are supported for global hold shortcuts.
 
 For dictation, put focus in the destination app **before** pressing the global hotkey. It types literal recognized text followed by a space; spoken punctuation commands are not implemented. Text goes to whichever window is focused, not necessarily the one visible at start. Do not change focus to a sensitive field while dictating.
 
 ### Approvals and emergency stop
 
-- Clicks, keystrokes and typing ask by default. The card shows **exact tool arguments**, including commands and file contents. After Allow, the panel hides to return input to the underlying app. Verify the target app before approval.
+- Clicks, keystrokes and typing ask by default. The card shows **exact tool arguments**, including commands and file contents. After Allow, the panel/notch hide to return input to the underlying app. Verify the target app before approval.
 - Commands, file reads/writes, HTTP(S) browser links and HTTPS fetches **always ask**, even if desktop approvals are disabled. File contents, command output and fetched text go to the selected model as tool results.
 - Fresh screenshots and annotations do not ask separately: they are part of the screen-context request. Turn **Screen context** off for text-only conversations; screenshot tools then fail closed. No background periodic screen capture.
 - Denying an action stops that agent task. Pending approval automatically denies after two minutes. No “allow everything” button.
@@ -86,9 +88,9 @@ For dictation, put focus in the destination app **before** pressing the global h
 
 ### Privacy & storage
 
-The app sends the current request, recent conversation text, requested screenshot, and approved tool results directly to `https://openrouter.ai/api/v1/chat/completions`. OpenRouter forwards them to your selected model provider. Retention depends on [OpenRouter privacy settings](https://openrouter.ai/settings/privacy) and the provider. No app-owned AI backend or telemetry is configured.
+The app sends the current request, recent conversation text (per-task context for agent follow-ups), requested screenshot, and approved tool results directly to `https://openrouter.ai/api/v1/chat/completions`. OpenRouter forwards them to your selected model provider. Retention depends on [OpenRouter privacy settings](https://openrouter.ai/settings/privacy) and the provider. No app-owned AI backend or telemetry is configured.
 
-Screenshots are JPEGs kept in process memory and not intentionally written to disk; OS paging/crash handling and remote providers are outside this guarantee. Prior screenshots and raw tool payloads are not retained in conversation history. Settings and an encrypted key are stored in Electron's Windows user-data folder (normally `%APPDATA%\heyclicky-community\settings.json`). DPAPI encryption is tied to your Windows user; no plaintext fallback. The portable executable also uses this folder and is **not fully self-contained**.
+Screenshots are JPEGs kept in process memory and not intentionally written to disk; OS paging/crash handling and remote providers are outside this guarantee. Prior screenshots and raw tool payloads are not retained in conversation history. Settings and an encrypted key are stored in Electron's Windows user-data folder (normally `%APPDATA%\heyclicky-community\settings.json`). DPAPI encryption is tied to your Windows user; no plaintext fallback. The portable executable also uses this folder and is **not fully self-contained**. Global hold-to-talk uses a local helper that polls only the configured Talk/Agent key combinations for release; it does not record arbitrary typing or send keyboard events anywhere. Audio and partial transcripts stay local until a completed voice request is submitted.
 
 Settings → **Delete local data** clears the saved key/settings, conversation, Electron cache and browser storage, disables login startup and quits. It does not delete files an agent created, remote provider records, or the installed app itself. Uninstall the installed version from Windows Settings.
 
@@ -125,7 +127,9 @@ src/main/index.js       Windows lifecycle, IPC, approvals, captures and tool exe
 src/main/lib/          Testable model client, bounded agent, schemas and encrypted settings
 src/main/native.js     Bounded PowerShell process execution and cancellation
 src/main/speech.js     Bounded, cancellable Windows speech helper lifecycle
-src/main/notch.js      Non-activating top-center notch and capture/input suspension
+src/main/notch.js      Three-state notch workspace and capture/input suspension
+src/main/keys.js       Scoped voice-shortcut release monitoring
+src/main/lib/tasks.js  Session task queue, lifecycle and follow-up context
 src/preload/           Narrow context-isolated, sandboxed IPC bridges
 src/renderer/          Conversation, settings, activity and click-through overlay UI
 scripts/*.ps1          Windows speech, Unicode input and native smoke tests
@@ -135,7 +139,7 @@ test/                  Node test runner: agent safety, settings, tools, HTTP and
 
 ## Validation and known limits
 
-Automated tests cover denial, cancellation during approval, talk-mode isolation, tool argument validation, step limits, encrypted-key round trips, HTTP error handling, and browser DOM interactions. CI also parses PowerShell, compiles/probes the native input helper, enumerates installed voices and speech-recognition engines, and launches the actual Electron panel/notch with isolated user data to verify startup, expansion/collapse, and the restricted notch IPC bridge. These do **not** prove live desktop/microphone behavior or model quality.
+Automated tests cover denial, cancellation during approval, talk-mode isolation, tool argument validation, step limits, encrypted-key round trips, HTTP error handling, and browser DOM interactions. CI also parses PowerShell, compiles/probes native input, held-speech and key-release helpers without opening a microphone, enumerates installed voices and speech-recognition engines, and launches the actual Electron panel/notch with isolated user data to verify startup, expansion/collapse, and the restricted notch IPC bridge. These do **not** prove live desktop/microphone behavior or model quality.
 
 Before distributing broadly, run [the Windows acceptance checklist](docs/WINDOWS-TESTING.md) on an actual Windows 10/11 machine with a microphone, OpenRouter credit and mixed-DPI monitors. No live paid model call or physical microphone test was run in the Linux coding workspace.
 
