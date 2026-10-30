@@ -76,3 +76,16 @@ These require an actual Windows desktop. Do not mark them complete based on unit
 - [ ] Delete local data removes dedicated profile/remembered permission plus key/settings. Locked profile reports retry without claiming everything was deleted. Personal Edge profile stays untouched. Remote Microsoft/OpenRouter records are not deleted.
 
 CI tests protocol/authentication, DOM consent, source/settings, cancellation and fallback with mocks; it compiles the Edge-window controller without manipulating a real window. It does **not** verify installed Edge Web Speech service behavior, remembered permissions, actual audio quality, Microsoft retention, minimized recognition, or physical microphone disposal.
+
+
+## Dark UI, clock/tool protocol & experimental hidden Edge (1.5.0)
+
+- [ ] Dark notch/panel/helper, readable text and 704×800 maximum logical expanded size. Check 100/125/150/200% DPI, 1366×768 and smaller work areas. No horizontal overflow; Settings and long chat scroll; composer/Send and Allow/Deny stay reachable with long arguments/notices. Check Windows high-contrast settings separately.
+- [ ] Ask “what time it is in Dubai?” and compare with the Windows clock converted to Asia/Dubai (UTC+4). It should show the actual local date/time and clock source, without an AI request or screenshot. Check midnight rollover, UTC, a daylight-saving zone and an ambiguous city (must not guess).
+- [ ] With a compatible OpenRouter model, ask a nontrivial clock/timezone question and inspect `get_time` activity. Test a batch containing screenshot plus another tool: model receives every matching tool response before user images. This requires a real model key; mocked tests do not prove hosted model behavior.
+- [ ] In Talk, a public HTTPS read must ask for approval and report failure honestly. Desktop commands/clicks remain Agent-only. Check insufficient credits, unsupported model/provider, text-only model with screen context, malformed tool response and Stop during a tool/approval.
+- [ ] After visible Edge test/background consent, save Hidden window mode and click Move helper to background. Dedicated Edge window leaves desktop/taskbar; OS microphone indicators remain. Verify actual speech, release-once, dictation, Stop and quit while hidden. No claim of live acceptance until checked on this machine.
+- [ ] Open visible Edge setup restores a hidden helper. Minimize/hide/restore/close never control personal Edge windows. Quit and Delete data also close the hidden helper. Verify after lock/sleep, browser update and permission reset. If recognition fails when hidden, restore and select Minimized or Windows input; no invisible/headless guarantee.
+- [ ] Before background consent, choosing Hidden alone cannot enable background permission. Existing 1.4 preferences migrate to Minimized, not silently to Hidden. Launch may briefly show a browser window before the authenticated helper connects.
+
+Local browser smoke checked 1280×1000, 720×700 and 390×600 with no JS errors/horizontal overflow, but is not Windows DPI, Edge voice or desktop-action verification.

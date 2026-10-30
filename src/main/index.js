@@ -19,6 +19,7 @@ const crypto = require("node:crypto");
 const { Settings } = require("./lib/settings");
 const { complete } = require("./lib/llm");
 const { runAgent } = require("./lib/agent");
+const { timeQuestion } = require("./lib/clock");
 const { Voice } = require("./voice");
 const { EdgeVoice } = require("./edge-voice");
 const { Notch } = require("./notch");
@@ -385,7 +386,10 @@ async function ask(text, mode = "talk", display, taskId = null) {
   emit("message", { role: "user", text, mode });
   setState("thinking");
   try {
-    const image = settings.value.screenContext ? await capture(signal) : null;
+    const image =
+      settings.value.screenContext && !timeQuestion(text)
+        ? await capture(signal)
+        : null;
     const chunks = [];
     const answer = await runAgent({
       text,
@@ -806,6 +810,7 @@ function installIPC() {
   handle("voices", () => speech.voices());
   handle("speech-diagnostics", () => speech.diagnostics());
   handle("edge-status", () => edge.status());
+  handle("edge-background", () => edge.background());
   handle("edge-setup", () => {
     if (controller || listeningMode || requestRunning)
       throw Error("Stop the current task before opening Edge setup.");
@@ -929,7 +934,7 @@ async function runDesktopSmoke() {
     if (
       !expanded.expanded ||
       notch.window.getBounds().height !==
-        Math.min(760, screen.getPrimaryDisplay().workArea.height)
+        Math.min(800, screen.getPrimaryDisplay().workArea.height)
     )
       throw Error("Notch did not expand through its trusted bridge.");
     await notch.window.webContents.executeJavaScript(
@@ -966,6 +971,7 @@ else {
         userData: app.getPath("userData"),
         native,
         getBackground: () => settings.value.edgeBackground,
+        getWindowMode: () => settings.value.edgeWindowMode,
         onBackground: (allowed) => {
           settings.save({ ...settings.value, edgeBackground: allowed });
           emit("edge-status", edge.status());

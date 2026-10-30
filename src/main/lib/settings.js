@@ -1,11 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const DEFAULTS = Object.freeze({ model: 'openai/gpt-4.1-mini', voice: '', speechLanguage: '', voiceProvider: 'windows', edgeLanguage: 'en-US', edgeFallback: true, edgeBackground: false, notch: true, captions: true, rate: 0, askBeforeActions: true, buddy: true, screenContext: true, speak: true, startWithWindows: false, hotkeys: { talk: 'CommandOrControl+Shift+Space', agent: 'CommandOrControl+Shift+A', dictate: 'CommandOrControl+Shift+D', panel: 'CommandOrControl+Shift+H', stop: 'CommandOrControl+Shift+X' } });
+const DEFAULTS = Object.freeze({ model: 'openai/gpt-4.1-mini', voice: '', speechLanguage: '', voiceProvider: 'windows', edgeLanguage: 'en-US', edgeFallback: true, edgeBackground: false, edgeWindowMode: 'minimized', notch: true, captions: true, rate: 0, askBeforeActions: true, buddy: true, screenContext: true, speak: true, startWithWindows: false, hotkeys: { talk: 'CommandOrControl+Shift+Space', agent: 'CommandOrControl+Shift+A', dictate: 'CommandOrControl+Shift+D', panel: 'CommandOrControl+Shift+H', stop: 'CommandOrControl+Shift+X' } });
 function validate(input) {
   const s = { ...DEFAULTS, ...input, hotkeys: { ...DEFAULTS.hotkeys, ...input.hotkeys } };
   if (typeof s.model !== 'string' || !/^[\w.-]+\/[\w.\-:/]+$/.test(s.model) || s.model.length > 150) throw Error('Enter a valid provider/model ID.');
   if (typeof s.voice !== 'string' || s.voice.length > 200) throw Error('Invalid voice.');
   if (typeof s.speechLanguage !== 'string' || (s.speechLanguage && !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){1,3}$/.test(s.speechLanguage))) throw Error('Choose a valid speech recognition language.');
+  if (!['minimized','hidden'].includes(s.edgeWindowMode)) throw Error('Choose minimized or hidden Edge window mode.');
   if (!['windows','edge'].includes(s.voiceProvider)) throw Error('Choose Windows or Edge voice input.');
   if (typeof s.edgeLanguage !== 'string' || !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){1,3}$/.test(s.edgeLanguage)) throw Error('Enter an Edge language such as en-US or bn-BD.');
   if (!Number.isInteger(s.rate) || s.rate < -5 || s.rate > 5) throw Error('Voice rate must be between -5 and 5.');

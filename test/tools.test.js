@@ -1,6 +1,6 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 const {tools,validateTool,needsApproval}=require('../src/main/lib/tools');
-test('all tools have strict schemas',()=>{assert.equal(tools.length,10);for(const t of tools)assert.equal(t.function.parameters.additionalProperties,false);});
+test('all tools have strict schemas',()=>{assert.equal(tools.length,11);for(const t of tools)assert.equal(t.function.parameters.additionalProperties,false);});
 test('coordinates are normalized and finite',()=>{
   assert.deepEqual(validateTool('click',{x:0,y:1000,button:'left'}),{x:0,y:1000,button:'left'});
   for(const x of [-1,1001,NaN,Infinity,'500'])assert.throws(()=>validateTool('click',{x,y:2,button:'left'}));

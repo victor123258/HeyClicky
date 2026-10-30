@@ -119,7 +119,8 @@ test("Loopback helper enforces capability, host, origin, no framing and no secre
   );
 });
 test("Background approval requires a successful visible recognition test", async (t) => {
-  const { edge } = await fixture(t);
+  const { edge, connect } = await fixture(t);
+  connect();
   await assert.rejects(edge.event({ type: "background-approved" }));
   assert.equal(edge.status().backgroundAllowed, false);
   await edge.event({ type: "test-success" });
@@ -244,4 +245,20 @@ test("Explicit helper cancellation releases active turn without a recognition er
   assert.deepEqual(f.ends, [{ ok: false, cancelled: true }]);
   assert.deepEqual(f.errors, []);
   assert.deepEqual(f.texts, []);
+});
+test("Hidden background window is opt-in and visible setup restores it", async (t) => {
+  const f = await fixture(t),
+    actions = [];
+  f.edge.getWindowMode = () => "hidden";
+  f.edge.windowAction = async (a) => actions.push(a);
+  f.connect();
+  await assert.rejects(f.edge.background(), /approve background/);
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved" });
+  assert.equal(f.edge.status().windowMode, "hidden");
+  assert.deepEqual(actions, ["hide"]);
+  assert.match(f.edge.status().detail, /experimental/);
+  await f.edge.openSetup();
+  assert.deepEqual(actions, ["hide", "restore"]);
+  assert.equal(f.edge.forceVisible, true);
 });

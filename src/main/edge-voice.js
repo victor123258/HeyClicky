@@ -12,6 +12,7 @@ class EdgeVoice {
     userData,
     native,
     getBackground = () => false,
+    getWindowMode = () => "minimized",
     onBackground = () => {},
     onStatus = () => {},
     port = 21843,
@@ -23,6 +24,7 @@ class EdgeVoice {
     this.profile = path.join(userData, "edge-voice-profile");
     this.native = native;
     this.getBackground = getBackground;
+    this.getWindowMode = getWindowMode;
     this.onBackground = onBackground;
     this.onStatus = onStatus;
     this.port = port;
@@ -53,6 +55,7 @@ class EdgeVoice {
     return {
       connected: this.connected,
       backgroundAllowed: this.getBackground(),
+      windowMode: this.getWindowMode(),
       origin: this.origin || "http://127.0.0.1:21843",
       detail: this.lastDetail,
     };
@@ -154,7 +157,11 @@ class EdgeVoice {
         "Content-Type": "application/x-ndjson",
         Connection: "keep-alive",
       });
-      this.send({ type: "hello", backgroundAllowed: this.getBackground() });
+      this.send({
+        type: "hello",
+        backgroundAllowed: this.getBackground(),
+        windowMode: this.getWindowMode(),
+      });
       this.changed(
         "Edge helper connected. Recognition still depends on browser permission and online service availability.",
       );
@@ -171,8 +178,12 @@ class EdgeVoice {
       });
       if (this.active && !this.active.started) this.startSession();
       if (this.getBackground() && !this.forceVisible)
-        this.windowAction("minimize").catch(() =>
-          this.changed("Connected, but could not minimize the Edge helper."),
+        this.windowAction(
+          this.getWindowMode() === "hidden" ? "hide" : "minimize",
+        ).catch(() =>
+          this.changed(
+            "Connected, but could not move Edge to the background. Open setup to restore it.",
+          ),
         );
       return;
     }
@@ -228,11 +239,12 @@ class EdgeVoice {
       if (!this.successfulTest) throw Error("Test the microphone first.");
       await this.onBackground(true);
       this.forceVisible = false;
-      this.send({ type: "hello", backgroundAllowed: true });
-      await this.windowAction("minimize");
-      this.changed(
-        "Background use enabled. The dedicated Edge helper was asked to minimize.",
-      );
+      this.send({
+        type: "hello",
+        backgroundAllowed: true,
+        windowMode: this.getWindowMode(),
+      });
+      await this.background();
       return;
     }
     const session = this.active;
@@ -360,6 +372,23 @@ class EdgeVoice {
     await this.launch(true);
     this.changed(
       "Edge setup opened. Grant microphone permission, test recognition, then choose background use.",
+    );
+    return this.status();
+  }
+  async background() {
+    if (!this.getBackground())
+      throw Error(
+        "Complete the visible microphone test and approve background use first.",
+      );
+    if (!this.connected)
+      throw Error("Open Edge setup to connect the helper first.");
+    this.forceVisible = false;
+    const hidden = this.getWindowMode() === "hidden";
+    await this.windowAction(hidden ? "hide" : "minimize");
+    this.changed(
+      hidden
+        ? "Edge helper window hidden (experimental). Use Open visible Edge setup to restore. Windows microphone indicators stay on during recording."
+        : "Edge helper minimized. Use Open visible Edge setup to restore.",
     );
     return this.status();
   }

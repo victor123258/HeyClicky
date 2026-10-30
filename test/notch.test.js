@@ -53,10 +53,10 @@ test("notch is centered in available area on negative-coordinate display", () =>
     height: 40,
   });
   assert.deepEqual(notchBounds(d, true), {
-    x: -1280,
+    x: -1312,
     y: 30,
-    width: 640,
-    height: 760,
+    width: 704,
+    height: 800,
   });
 });
 test("bounds are clamped on small displays", () => {
@@ -76,7 +76,7 @@ test("notch cannot steal typing focus, spawn browser windows or run Node", () =>
 test("collapsed native window shrinks instead of covering invisible screen space", () => {
   const { notch, win } = setup();
   notch.expand(true);
-  assert.equal(win.bounds.height, 760);
+  assert.equal(win.bounds.height, 800);
   notch.expand(false);
   assert.equal(win.bounds.height, 40);
   assert.equal(win.bounds.width, 232);

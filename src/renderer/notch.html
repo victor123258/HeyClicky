@@ -284,6 +284,21 @@
                     support and background operation are not guaranteed. No
                     separate speech API key is required.
                   </p>
+                  <label for="edge-window-mode"
+                    >Background window behavior</label
+                  >
+                  <select id="edge-window-mode">
+                    <option value="minimized">Minimized · recommended</option>
+                    <option value="hidden">Hidden window · experimental</option>
+                  </select>
+                  <small
+                    >Hidden removes the dedicated helper window from the
+                    desktop/taskbar after connection, not the Edge process or
+                    Windows microphone indicators. It may briefly appear at
+                    launch or stop recognizing when hidden. Save this
+                    preference, then click Move helper to background. Restore it
+                    any time with Open visible Edge setup.</small
+                  >
                   <label for="edge-language">Edge input language</label
                   ><input
                     id="edge-language"
@@ -316,6 +331,13 @@
                       Close helper
                     </button>
                   </div>
+                  <button
+                    id="edge-background"
+                    type="button"
+                    class="outline-button"
+                  >
+                    Move helper to background
+                  </button>
                   <p id="edge-status" role="status">
                     Helper not connected. Save your provider preference before
                     using the notch microphone.
@@ -326,7 +348,7 @@
                     class="quiet-button"
                     hidden
                   >
-                    Disable automatic minimized launches
+                    Disable automatic background launches
                   </button>
                 </div>
                 <label for="speech-language"
@@ -523,6 +545,10 @@
               <svg><use href="#i-plus" /></svg>
             </button>
           </div>
+          <p id="tool-status" class="tool-status" role="status" hidden></p>
+          <p id="mode-hint" class="mode-hint">
+            Talk · answers, clock & approved web reads. Agent · desktop actions.
+          </p>
           <form id="composer">
             <textarea
               id="prompt"

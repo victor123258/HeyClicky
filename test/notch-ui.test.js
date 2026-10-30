@@ -170,3 +170,29 @@ test("Edge provider controls persist without granting background consent in the 
     dom.window.close();
   }
 });
+test("Hidden Edge preference saves independently from background permission; dark UI has bounded sizing", async () => {
+  const dom = await setup();
+  try {
+    const d = dom.window.document;
+    d.querySelector("#voice-provider").value = "edge";
+    d.querySelector("#voice-provider").dispatchEvent(
+      new dom.window.Event("change"),
+    );
+    d.querySelector("#edge-window-mode").value = "hidden";
+    d.querySelector("#settings-form").dispatchEvent(
+      new dom.window.Event("submit", { cancelable: true }),
+    );
+    await wait();
+    const value = (await dom.window.notchDemo.call("get-settings")).data;
+    assert.equal(value.edgeWindowMode, "hidden");
+    assert.equal(value.edgeBackground, false);
+    assert.ok(d.querySelector("#edge-background"));
+    assert.ok(d.querySelector("#mode-hint"));
+    const css = fs.readFileSync(path.join(root, "notch.css"), "utf8");
+    assert.match(css, /color-scheme:\s*dark/);
+    assert.match(css, /max-height:\s*55vh/);
+    assert.match(css, /font-size:\s*14px/);
+  } finally {
+    dom.window.close();
+  }
+});

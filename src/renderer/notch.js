@@ -61,6 +61,10 @@ function task(fn) {
 }
 function setMode(value) {
   mode = value;
+  $("#mode-hint").textContent =
+    value === "agent"
+      ? "Agent · desktop tools with your approval. Verify each action."
+      : "Talk · answers, clock & approved web reads. Switch to Agent for desktop actions.";
   $$("[data-mode]").forEach((b) =>
     b.classList.toggle("selected", b.dataset.mode === value),
   );
@@ -245,7 +249,11 @@ function renderThread() {
     steps.append(
       heading,
       ...job.steps.map((s) =>
-        el("div", "step-row", `${s.name.replaceAll("_", " ")} · ${s.status}`),
+        el(
+          "div",
+          `step-row ${s.status}`,
+          `${s.name.replaceAll("_", " ")} · ${s.status}`,
+        ),
       ),
     );
     if (
@@ -257,6 +265,7 @@ function renderThread() {
 }
 function fillSettings(data) {
   config = data;
+  $("#edge-window-mode").value = data.edgeWindowMode || "minimized";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
   $("#edge-fallback").checked = data.edgeFallback !== false;
@@ -344,12 +353,26 @@ function renderEdgeStatus(data) {
   $("#edge-status").textContent =
     (data.connected ? "Connected. " : "Not connected. ") +
     (data.backgroundAllowed
-      ? "Minimized launches enabled. "
-      : "Automatic minimized launches are off. ") +
+      ? "Background launches enabled. "
+      : "Automatic background launches are off. ") +
     (data.detail || "");
   $("#edge-disable").hidden = !data.backgroundAllowed;
 }
 function appEvent({ type, data }) {
+  if (type === "tool") {
+    const labels = {
+      get_time: "Device clock",
+      fetch_url: "Read web page",
+      screenshot: "Capture screen",
+      draw: "Draw guide",
+    };
+    $("#tool-status").hidden = false;
+    $("#tool-status").dataset.status = data.status;
+    $("#tool-status").textContent =
+      (labels[data.name] || data.name.replaceAll("_", " ")) +
+      " · " +
+      data.status;
+  }
   if (type === "edge-status") renderEdgeStatus(data);
   if (type === "voice-notice") {
     notify(data);
@@ -363,6 +386,7 @@ function appEvent({ type, data }) {
     renderJobs();
   }
   if (type === "message") {
+    if (data.role === "user") $("#tool-status").hidden = true;
     messages.push(data);
     messages = messages.slice(-200);
     $("#chat-count").textContent = messages.length;
@@ -546,6 +570,9 @@ $("#test-key").onclick = task(async () => {
 });
 $("#voice-provider").onchange = () =>
   ($("#edge-options").hidden = $("#voice-provider").value !== "edge");
+$("#edge-background").onclick = task(async () =>
+  renderEdgeStatus(await call("edge-background")),
+);
 $("#edge-setup").onclick = task(async () =>
   renderEdgeStatus(await call("edge-setup")),
 );
@@ -604,6 +631,7 @@ $("#settings-form").onsubmit = task(async (e) => {
       voice: $("#voice-select").value,
       speechLanguage: $("#speech-language").value,
       voiceProvider: $("#voice-provider").value,
+      edgeWindowMode: $("#edge-window-mode").value,
       edgeLanguage: $("#edge-language").value.trim(),
       edgeFallback: $("#edge-fallback").checked,
       rate: Number($("#rate").value),

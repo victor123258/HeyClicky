@@ -2,6 +2,7 @@ const object = properties => ({ type: 'object', properties, additionalProperties
 const string = description => ({ type: 'string', description });
 const number = description => ({ type: 'number', description });
 const definitions = [
+  ['get_time', 'Read the current date and time from the device clock in an IANA timezone. Use Asia/Dubai for Dubai, Asia/Dhaka for Dhaka, or an empty string for device-local time. No network or approval needed.', { timeZone: string('IANA timezone, e.g. Asia/Dubai; empty for device local') }],
   ['screenshot', 'Look again at the selected display. Coordinates are normalized 0–1000.', {}],
   ['draw', 'Point or draw on the selected display. Coordinates normalized 0–1000.', { shape: { type: 'string', enum: ['pointer', 'box', 'circle', 'arrow'] }, x: number('Left/start'), y: number('Top/start'), x2: number('Right/end'), y2: number('Bottom/end'), label: string('Short label') }],
   ['click', 'Click on selected display. Always recheck screenshot afterward.', { x: number('0–1000'), y: number('0–1000'), button: { type: 'string', enum: ['left', 'right', 'double'] } }],
@@ -34,6 +35,6 @@ function validateTool(name, args) {
 }
 function needsApproval(name, ask = true) {
   // Reading files and fetching URLs can expose private data; never silently approve them.
-  return !['screenshot', 'draw'].includes(name) && (ask || ['powershell', 'write_file', 'read_file', 'fetch_url', 'open_url'].includes(name));
+  return !['screenshot', 'draw', 'get_time'].includes(name) && (ask || ['powershell', 'write_file', 'read_file', 'fetch_url', 'open_url'].includes(name));
 }
 module.exports = { tools, validateTool, needsApproval };

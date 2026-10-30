@@ -14,7 +14,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
   let config = {
     model: "openai/gpt-4.1-mini",
     voice: "",
-    speechLanguage: "", voiceProvider:"windows",edgeLanguage:"en-US",edgeFallback:true,edgeBackground:false,
+    speechLanguage: "", voiceProvider:"windows",edgeLanguage:"en-US",edgeFallback:true,edgeBackground:false,edgeWindowMode:"minimized",
     rate: 0,
     notch: true,
     captions: true,
@@ -72,7 +72,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
         config = { ...config, ...args[0] };
         return { ok: true, data: config };
       }
-      if(["edge-setup","edge-close","edge-status"].includes(name)){
+      if(["edge-setup","edge-close","edge-status","edge-background"].includes(name)){
         const data={connected:false,backgroundAllowed:false,detail:"Design preview only. The Windows app opens real Edge; this preview does not access a microphone."};event("edge-status",data);return {ok:true,data};
       }
       if (name === "ask") {
