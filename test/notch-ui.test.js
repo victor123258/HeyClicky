@@ -268,6 +268,7 @@ test("desktop canvas controls work without opening chat and desktop setting roun
     d.querySelector("[data-route=settings]").click();
     await wait();
     d.querySelector("#desktop-visuals").checked = false;
+    d.querySelector("#auto-explain-visuals").checked = false;
     d.querySelector("#settings-form").dispatchEvent(
       new dom.window.Event("submit", { bubbles: true, cancelable: true }),
     );

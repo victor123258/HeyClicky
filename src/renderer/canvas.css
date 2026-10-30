@@ -162,3 +162,8 @@ body.interactive #input-mode {
     scroll-behavior: auto !important;
   }
 }
+
+#connector-preview {
+  color: #c9d9ef;
+  font-size: 12px;
+}

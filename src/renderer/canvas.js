@@ -2,7 +2,7 @@ const $ = (s) => document.querySelector(s);
 let state = { visual: null, interactive: false, step: 0, reset: 0 },
   rendered = "";
 const preview = !window.desktopCanvas;
-const sample = {
+const aircraftSample = {
   id: "preview",
   jobId: null,
   spec: {
@@ -185,24 +185,32 @@ const sample = {
     ],
   },
 };
+const sample =
+  new URLSearchParams(location.search).get("example") === "connector"
+    ? window.connectorExample
+    : aircraftSample;
+
 async function command(action, value) {
   try {
     if (preview) {
+      const next = { ...state };
       if (action === "dismiss") {
-        state.visual = null;
-        draw(state);
+        next.visual = null;
+        draw(next);
         return;
       }
-      if (action === "step") state.step = value;
-      else if (action === "animate") state.animate = value;
-      else if (action === "reset") state.reset++;
-      else if (action === "passthrough") state.interactive = false;
-      else if (action === "interact") state.interactive = true;
+      if (action === "step") next.step = value;
+      else if (action === "animate") next.animate = value;
+      else if (action === "reset") {
+        next.reset++;
+        next.viewKey = (next.viewKey || 0) + 1;
+      } else if (action === "passthrough") next.interactive = false;
+      else if (action === "interact") next.interactive = true;
       else
         throw Error(
           "Narration is available in the Windows app; this is a visual preview only.",
         );
-      draw(state);
+      draw(next);
       return;
     }
     const result = await window.desktopCanvas.command(action, value);
@@ -213,6 +221,12 @@ async function command(action, value) {
   }
 }
 function draw(next) {
+  const preserveMotion =
+    state.visual?.id === next.visual?.id && state.step === next.step;
+  const previousView =
+    state.visual && state.viewKey === next.viewKey
+      ? window.visuals?.capture()
+      : null;
   state = next;
   document.body.classList.toggle("interactive", state.interactive);
   const visual = state.visual;
@@ -261,6 +275,8 @@ function draw(next) {
     rendered = key;
     try {
       window.visuals.render($("#stage"), spec, {
+        previousView,
+        preserveMotion,
         transparent: true,
         desktop: true,
         step: state.step,
@@ -292,11 +308,13 @@ document.addEventListener("keydown", (e) => {
   }
 });
 if (preview) {
+  $("#connector-preview").hidden = false;
   draw({
     visual: sample,
     interactive: true,
     step: 0,
     reset: 0,
+    viewKey: 0,
     audio: "off",
     error: "",
   });

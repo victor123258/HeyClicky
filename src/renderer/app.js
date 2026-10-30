@@ -176,6 +176,7 @@ function updateConfig(data) {
     "screen-context": "screenContext",
     "notch-enabled": "notch",
     "desktop-visuals": "desktopVisuals",
+    "auto-explain-visuals": "autoExplainVisuals",
   }))
     $(`#${id}`).checked = data[key];
   $("#safety-note").hidden = data.askBeforeActions;
@@ -441,6 +442,7 @@ $("#settings-form").onsubmit = safeTask(async (e) => {
     edgeFallback: $("#edge-fallback").checked,
     notch: $("#notch-enabled").checked,
     desktopVisuals: $("#desktop-visuals").checked,
+    autoExplainVisuals: $("#auto-explain-visuals").checked,
     rate: Number($("#rate").value),
     speak: $("#speak").checked,
     buddy: $("#buddy").checked,

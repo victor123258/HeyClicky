@@ -260,6 +260,50 @@ function validateVisual(raw) {
         );
         result.visible = [...new Set(step.visible)];
       }
+      if (step.poses !== undefined) {
+        check(
+          s.kind === "scene3d" &&
+            Array.isArray(step.poses) &&
+            step.poses.length <= 40,
+          "Poses require at most 40 3D object targets.",
+        );
+        const seen = new Set();
+        result.poses = step.poses.map((p) => {
+          check(
+            p &&
+              ids.includes(p.id) &&
+              !seen.has(p.id) &&
+              Object.keys(p).every((k) =>
+                ["id", "position", "rotation", "scale"].includes(k),
+              ),
+            "Pose requires a unique existing object ID and only transform fields.",
+          );
+          seen.add(p.id);
+          const pose = { id: p.id };
+          let count = 0;
+          for (const [key, min, max] of [
+            ["position", -20, 20],
+            ["rotation", -360, 360],
+            ["scale", 0.01, 10],
+          ])
+            if (p[key] !== undefined) {
+              check(vector(p[key], min, max), "Invalid pose transform.");
+              pose[key] = [...p[key]];
+              count++;
+            }
+          check(count > 0, "Pose requires at least one transform.");
+          return pose;
+        });
+      }
+      if (step.durationMs !== undefined) {
+        check(
+          Number.isInteger(step.durationMs) &&
+            step.durationMs >= 0 &&
+            step.durationMs <= 2500,
+          "Step duration must be 0–2500 milliseconds.",
+        );
+        result.durationMs = step.durationMs;
+      }
       return result;
     });
   }
@@ -407,15 +451,25 @@ function visualContext(spec) {
       }
     }
   if (s.steps)
-    s.steps = s.steps.map(({ title, narration }) => ({
-      title: title.slice(0, 80),
-      narration: narration.slice(0, 120),
-    }));
+    s.steps = s.steps.map(
+      ({ title, narration, poses, highlight, visible, durationMs }) => ({
+        title: title.slice(0, 80),
+        narration: narration.slice(0, 120),
+        ...(poses ? { poses } : {}),
+        highlight,
+        ...(visible ? { visible } : {}),
+        ...(durationMs !== undefined ? { durationMs } : {}),
+      }),
+    );
   if (JSON.stringify(s).length > 18000) {
     for (const arr of [s.objects, s.elements])
       if (arr) for (const item of arr) delete item.label;
   }
 
+  if (JSON.stringify(s).length > 18000 && s.steps) {
+    s.steps = s.steps.map(({ title, narration }) => ({ title, narration }));
+    s.stepTargetsOmitted = true;
+  }
   return s;
 }
 module.exports = { validateVisual, applyVisualPatch, visualContext };

@@ -32,6 +32,12 @@ const {
   applyVisualPatch,
   visualContext,
 } = require("./lib/visuals");
+const {
+  visualVoiceCommand,
+  runVisualVoiceCommand,
+  speakVisualAnswer,
+  hasFreshVisualGuide,
+} = require("./lib/visual-playback");
 const { DesktopCanvas } = require("./desktop-canvas");
 const { Keys } = require("./keys");
 const { keyGroups } = require("./lib/hold-keys");
@@ -46,7 +52,10 @@ if (smokeMode) {
   app.setPath("userData", process.env.HEYCLICKY_TEST_USER_DATA);
 }
 
-let backgroundJobs, desktopCanvas;
+let backgroundJobs,
+  desktopCanvas,
+  afterVisualGuide = null,
+  visualResumeVersion = 0;
 let visualResults = [];
 let edge,
   edgeClosing = false;
@@ -122,6 +131,8 @@ function error(error) {
   }
 }
 function stop(all = true) {
+  visualResumeVersion++;
+  afterVisualGuide = null;
   if (all) desktopCanvas?.dismiss();
   else desktopCanvas?.cancelNarration();
   if (all) backgroundJobs?.stopAll();
@@ -350,12 +361,23 @@ async function safeTool(name, args, signal, jobId = null) {
       name === "show_visual"
         ? validateVisual(args.spec)
         : applyVisualPatch(previous?.spec, args.changes);
-    const visual = { id: crypto.randomUUID(), jobId, spec };
+    const visual = {
+      id: crypto.randomUUID(),
+      jobId,
+      spec,
+      explanationFresh:
+        name === "show_visual" ||
+        Object.hasOwn(JSON.parse(args.changes), "steps"),
+    };
     visualResults.push(visual);
     visualResults = visualResults.slice(-8);
     emit("visual", visual);
     if (!isBackground && settings.value.desktopVisuals)
-      desktopCanvas.present(visual, activeDisplay);
+      desktopCanvas.present(visual, activeDisplay, {
+        preserveView:
+          name === "update_visual" &&
+          desktopCanvas.current?.id === previous?.id,
+      });
     return JSON.stringify({
       status: isBackground
         ? "Archived for this background job; not shown on desktop"
@@ -370,7 +392,8 @@ async function safeTool(name, args, signal, jobId = null) {
         label: o.label,
       })),
       steps: spec.steps?.map((s) => s.title),
-      note: "User controls Interact, teaching steps, narration, motion and dismissal. Use update_visual for follow-ups; geometry is explanatory, not verified simulation.",
+      context: visualContext(spec),
+      note: "When enabled, foreground answers narrate teaching steps automatically. User controls Interact, teaching steps, narration, motion and dismissal. Use update_visual for follow-ups; geometry is explanatory, not verified simulation.",
     });
   }
   // Only these existing approval-gated data operations may run off-desktop.
@@ -502,6 +525,7 @@ async function ask(text, mode = "talk", display, taskId = null) {
     mode = "agent";
     text = text.replace(/^agent\b[\s,:]*/i, "");
   }
+  const visualBeforeId = desktopCanvas.current?.id;
   desktopCanvas?.cancelNarration();
   desktopCanvas?.setInteractive(false);
   const current = (controller = new AbortController());
@@ -522,11 +546,17 @@ async function ask(text, mode = "talk", display, taskId = null) {
         ? await capture(signal)
         : null;
     const chunks = [];
+    let answerVisualId = null;
     const answer = await runAgent({
       text,
       mode,
       history: task ? task.history : history,
-      activeVisual: visualContext(desktopCanvas.current?.spec),
+      activeVisual: desktopCanvas.current
+        ? {
+            ...visualContext(desktopCanvas.current.spec),
+            activeStep: desktopCanvas.step,
+          }
+        : null,
       outputDirectory: /document|report|pdf|docx|write|create/i.test(text)
         ? app.getPath("documents")
         : "",
@@ -541,7 +571,12 @@ async function ask(text, mode = "talk", display, taskId = null) {
           tools,
           signal,
         }),
-      execute,
+      execute: async (name, args, signal) => {
+        const result = await execute(name, args, signal);
+        if (["show_visual", "update_visual"].includes(name))
+          answerVisualId = desktopCanvas.current?.id || null;
+        return result;
+      },
       approve,
       onMessage: (text) => {
         chunks.push(text);
@@ -567,16 +602,18 @@ async function ask(text, mode = "talk", display, taskId = null) {
           .slice(0, 12000),
       },
     );
-    if (task) {
-      task.history = targetHistory.slice(-12);
-      tasks.update(taskId, {
-        status: answer.startsWith("That action was denied.")
-          ? "cancelled"
-          : "completed",
-        result: answer,
-      });
-    } else history = history.slice(-12);
-    if (settings.value.captions && answer)
+    if (task) task.history = targetHistory.slice(-12);
+    else history = history.slice(-12);
+    if (
+      settings.value.captions &&
+      answer &&
+      !hasFreshVisualGuide(
+        desktopCanvas,
+        visualBeforeId,
+        settings.value,
+        answerVisualId,
+      )
+    )
       broadcast("caption", {
         text: answer.slice(0, 600),
         bounds: activeDisplay.bounds,
@@ -584,7 +621,15 @@ async function ask(text, mode = "talk", display, taskId = null) {
     if (settings.value.speak && answer) {
       setState("speaking");
       try {
-        await speech.speak(answer, settings.value, signal);
+        await speakVisualAnswer({
+          canvas: desktopCanvas,
+          beforeId: visualBeforeId,
+          expectedId: answerVisualId,
+          settings: settings.value,
+          answer,
+          signal,
+          speak: (text, signal) => speech.speak(text, settings.value, signal),
+        });
       } catch (e) {
         if (!signal.aborted)
           emit("error", "Answer ready, but voice failed: " + e.message);
@@ -592,6 +637,14 @@ async function ask(text, mode = "talk", display, taskId = null) {
         broadcast("caption", null);
       }
     }
+    signal.throwIfAborted();
+    if (task)
+      tasks.update(taskId, {
+        status: answer.startsWith("That action was denied.")
+          ? "cancelled"
+          : "completed",
+        result: answer,
+      });
   } catch (e) {
     if (task)
       tasks.update(taskId, {
@@ -608,8 +661,23 @@ async function ask(text, mode = "talk", display, taskId = null) {
       controller = null;
       setState("idle");
     }
+    const resume = afterVisualGuide;
+    afterVisualGuide = null;
+    const resumeVersion = visualResumeVersion;
+    if (resume)
+      setImmediate(() => {
+        if (resumeVersion === visualResumeVersion) resume();
+      });
     setImmediate(pumpTasks);
   }
+}
+function visualGuideSpeaking() {
+  return (
+    state === "speaking" &&
+    requestRunning &&
+    controller &&
+    desktopCanvas.audioState === "tour"
+  );
 }
 function submit(text, mode = "talk", taskId, display) {
   if (
@@ -619,6 +687,35 @@ function submit(text, mode = "talk", taskId, display) {
     !["talk", "agent", "background"].includes(mode)
   )
     throw Error("Enter a question up to 12,000 characters.");
+  if (mode === "talk") {
+    if (visualGuideSpeaking()) {
+      visualResumeVersion++;
+      afterVisualGuide = () => {
+        try {
+          submit(text, mode, taskId, display);
+        } catch (e) {
+          error(e);
+        }
+      };
+      desktopCanvas.cancelNarration();
+      return null;
+    }
+  }
+  const visualCommand =
+    mode === "talk" && !taskId && desktopCanvas.current
+      ? visualVoiceCommand(text)
+      : null;
+  if (visualCommand) {
+    if (controller || listeningMode || requestRunning)
+      throw Error("Finish the current task first.");
+    emit("message", { role: "user", text, mode });
+    runVisualVoiceCommand(
+      desktopCanvas,
+      visualCommand,
+      settings.value.speak,
+    ).catch(error);
+    return null;
+  }
   if (!settings.key) {
     showPanel("settings");
     throw Error("Save your OpenRouter API key in Settings first.");
@@ -666,6 +763,8 @@ function cancelTask(id) {
     return;
   }
   if (currentTaskId === id) {
+    afterVisualGuide = null;
+    visualResumeVersion++;
     controller?.abort();
     speech.stop();
     if (approval?.jobId === id) approval.resolve(false);
@@ -681,6 +780,16 @@ function startHold(mode, source = "pointer") {
         "Shortcut monitoring is starting. Try again shortly or use the on-screen hold button.",
       ),
     );
+    return;
+  }
+  if (visualGuideSpeaking()) {
+    visualResumeVersion++;
+    const held = { mode, source, started: Date.now(), ready: false };
+    heldTurn = held;
+    afterVisualGuide = () => {
+      if (heldTurn === held) listen(mode, true);
+    };
+    desktopCanvas.cancelNarration();
     return;
   }
   if (controller || listeningMode || requestRunning) {
@@ -710,6 +819,12 @@ function releaseHold(source = "pointer", cancel = false) {
   speech.finishListening();
 }
 function listen(mode, held = false) {
+  if (visualGuideSpeaking()) {
+    visualResumeVersion++;
+    afterVisualGuide = () => listen(mode, held);
+    desktopCanvas.cancelNarration();
+    return;
+  }
   desktopCanvas?.cancelNarration();
   desktopCanvas?.setInteractive(false);
   if (controller || listeningMode || requestRunning) {
@@ -1211,7 +1326,8 @@ async function runDesktopSmoke() {
     if (canvasWindow.isVisible())
       throw Error("Canvas not hidden during capture/input.");
     desktopCanvas.suspend(false);
-    const before = desktopCanvas.current;
+    const before = desktopCanvas.current,
+      viewKey = desktopCanvas.viewKey;
     const bg = tasks.enqueue("Smoke background visual", null, "background");
     await safeTool(
       "show_visual",
@@ -1246,6 +1362,7 @@ async function runDesktopSmoke() {
       smokeSignal,
     );
     if (
+      desktopCanvas.viewKey !== viewKey ||
       desktopCanvas.window !== canvasWindow ||
       desktopCanvas.current.spec.title !== "Updated foreground"
     )

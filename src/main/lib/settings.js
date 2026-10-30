@@ -11,6 +11,7 @@ const DEFAULTS = Object.freeze({
   edgeWindowMode: "minimized",
   notch: true,
   desktopVisuals: true,
+  autoExplainVisuals: true,
   captions: true,
   rate: 0,
   askBeforeActions: true,
@@ -68,6 +69,7 @@ function validate(input) {
     "edgeFallback",
     "edgeBackground",
     "desktopVisuals",
+    "autoExplainVisuals",
   ])
     if (typeof s[k] !== "boolean") throw Error(`Invalid ${k}`);
   const keys = Object.keys(DEFAULTS.hotkeys).map((k) => s.hotkeys[k]);

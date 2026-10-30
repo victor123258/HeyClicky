@@ -366,6 +366,7 @@ function fillSettings(data) {
     buddy: "buddy",
     "notch-enabled": "notch",
     "desktop-visuals": "desktopVisuals",
+    "auto-explain-visuals": "autoExplainVisuals",
     "start-windows": "startWithWindows",
   }))
     $(`#${id}`).checked = data[key] !== false;
@@ -739,6 +740,7 @@ $("#settings-form").onsubmit = task(async (e) => {
       buddy: "buddy",
       "notch-enabled": "notch",
       "desktop-visuals": "desktopVisuals",
+      "auto-explain-visuals": "autoExplainVisuals",
       "start-windows": "startWithWindows",
     }))
       next[key] = $(`#${id}`).checked;

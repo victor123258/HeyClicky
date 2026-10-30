@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-let dispose = () => {};
+import { stepObjects } from "./visual-state.mjs";
+let dispose = () => {},
+  capture = () => null;
 function render(host, spec, options = {}) {
   dispose();
+  capture = () => null;
   host.replaceChildren();
   const step = spec.steps?.[options.step ?? 0],
     highlight = new Set(step?.highlight || []),
@@ -191,7 +194,12 @@ function render(host, spec, options = {}) {
     camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000),
     resources = [],
     bounds = new THREE.Box3(),
-    motions = [];
+    motions = [],
+    nodes = new Map(),
+    transitions = [],
+    labels = [];
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const duration = reduce ? 0 : (step?.durationMs ?? 650);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x45566e, 2.5));
   const light = new THREE.DirectionalLight(0xffffff, 3);
   light.position.set(8, 14, 10);
@@ -213,11 +221,12 @@ function render(host, spec, options = {}) {
       emissive: highlight.has(o.id) ? 0x5d4400 : 0x000000,
       emissiveIntensity: 0.4,
     });
-  for (const o of spec.objects) {
+  for (const o of stepObjects(spec, options.step ?? 0)) {
     if (!visible(o.id)) continue;
     let node;
     if (o.type === "arrow") {
-      const from = new THREE.Vector3(o.x, o.y, o.z),
+      const base = spec.objects.find((v) => v.id === o.id);
+      const from = new THREE.Vector3(base.x, base.y, base.z),
         to = new THREE.Vector3(...o.to),
         dir = to.clone().sub(from);
       node = new THREE.ArrowHelper(
@@ -280,7 +289,52 @@ function render(host, spec, options = {}) {
     );
     node.scale.set(...(o.scale || [1, 1, 1]));
     scene.add(node);
+    nodes.set(o.id, node);
     bounds.expandByObject(node);
+    const previous = options.previousView?.objects?.[o.id];
+    if (previous && options.preserveMotion && o.motion) {
+      if (o.motion.mode === "rotate")
+        node.quaternion.fromArray(previous.quaternion);
+      let i = 0;
+      node.traverse((child) => {
+        if (child.material) {
+          if (previous.alphas?.[i] !== undefined) {
+            child.material.transparent = true;
+            child.material.opacity = previous.alphas[i];
+          }
+          i++;
+        }
+      });
+    }
+    if (previous && duration > 0) {
+      const goal = {
+        position: node.position.clone(),
+        quaternion: node.quaternion.clone(),
+        scale: node.scale.clone(),
+      };
+      node.position.fromArray(previous.position);
+      node.quaternion.fromArray(previous.quaternion);
+      node.scale.fromArray(previous.scale);
+      if (
+        node.position.distanceTo(goal.position) > 0.0001 ||
+        node.quaternion.angleTo(goal.quaternion) > 0.0001 ||
+        node.scale.distanceTo(goal.scale) > 0.0001
+      )
+        transitions.push({
+          node,
+          from: {
+            position: node.position.clone(),
+            quaternion: node.quaternion.clone(),
+            scale: node.scale.clone(),
+          },
+          goal,
+        });
+      else {
+        node.position.copy(goal.position);
+        node.quaternion.copy(goal.quaternion);
+        node.scale.copy(goal.scale);
+      }
+    }
     if (o.motion)
       motions.push({
         node,
@@ -324,6 +378,12 @@ function render(host, spec, options = {}) {
       sprite.position.set(o.x, o.y + o.size / 2 + 0.6, o.z);
       sprite.scale.set(4, 0.625, 1);
       scene.add(sprite);
+      bounds.expandByPoint(new THREE.Vector3(o.x, o.y + o.size / 2 + 0.6, o.z));
+      labels.push({
+        sprite,
+        node,
+        offset: new THREE.Vector3(0, o.size / 2 + 0.6, 0),
+      });
       resources.push(texture, m);
     }
   }
@@ -343,7 +403,11 @@ function render(host, spec, options = {}) {
   controls.minDistance = 0.5;
   controls.maxDistance = Math.max(150, radius * 10);
   controls.enableDamping = false;
-  const draw = () => renderer.render(scene, camera);
+  const draw = () => {
+    for (const { sprite, node, offset } of labels)
+      sprite.position.copy(node.position).add(offset);
+    renderer.render(scene, camera);
+  };
   controls.addEventListener("change", draw);
   let firstSize = true;
   const resize = () => {
@@ -367,6 +431,14 @@ function render(host, spec, options = {}) {
             .multiplyScalar((radius / Math.sin(f)) * 1.12),
         );
     }
+    if (firstSize === false && options.previousView?.camera) {
+      if (!resize.restored) {
+        camera.position.fromArray(options.previousView.camera.position);
+        controls.target.fromArray(options.previousView.camera.target);
+        resize.restored = true;
+      }
+    }
+    controls.update();
     camera.updateProjectionMatrix();
     draw();
   };
@@ -375,27 +447,65 @@ function render(host, spec, options = {}) {
   resize();
   let frame = 0,
     last = 0;
-  const start = performance.now(),
-    reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const start = performance.now();
+  const loopMotion = Boolean(options.animate && motions.length && !reduce);
   const animate = (now) => {
-    frame = requestAnimationFrame(animate);
-    if (document.hidden || now - last < 33) return;
-    last = now;
-    const seconds = (now - start) / 1000;
-    for (const { node, motion, base, materials } of motions) {
-      if (motion.mode === "rotate")
-        node.rotation[motion.axis] = base + seconds * motion.speed;
-      else
-        for (const { material, opacity } of materials) {
-          material.transparent = true;
-          material.opacity =
-            opacity * (0.65 + 0.35 * Math.sin(seconds * motion.speed * 4));
-        }
+    if (document.hidden || now - last < 33) {
+      frame = requestAnimationFrame(animate);
+      return;
     }
+    last = now;
+    const elapsed = now - start,
+      t = Math.min(1, elapsed / Math.max(1, duration)),
+      ease = t * t * (3 - 2 * t);
+    for (const { node, from, goal } of transitions) {
+      node.position.lerpVectors(from.position, goal.position, ease);
+      node.quaternion.slerpQuaternions(from.quaternion, goal.quaternion, ease);
+      node.scale.lerpVectors(from.scale, goal.scale, ease);
+      if(t===1){node.position.copy(goal.position);node.quaternion.copy(goal.quaternion);node.scale.copy(goal.scale);}
+    }
+    if (loopMotion)
+      for (const { node, motion, base, materials } of motions) {
+        const seconds =
+          Math.max(0, elapsed - (transitions.length ? duration : 0)) / 1000;
+        if (motion.mode === "rotate" && t === 1)
+          node.rotation[motion.axis] = base + seconds * motion.speed;
+        else if (motion.mode === "pulse")
+          for (const { material, opacity } of materials) {
+            material.transparent = true;
+            material.opacity =
+              opacity * (0.65 + 0.35 * Math.sin(seconds * motion.speed * 4));
+          }
+      }
     draw();
+    if ((transitions.length && t < 1) || loopMotion)
+      frame = requestAnimationFrame(animate);
+    else frame = 0;
   };
-  if (options.animate && motions.length && !reduce)
-    frame = requestAnimationFrame(animate);
+  if (transitions.length || loopMotion) frame = requestAnimationFrame(animate);
+  capture = () => ({
+    camera: {
+      position: camera.position.toArray(),
+      target: controls.target.toArray(),
+    },
+    objects: Object.fromEntries(
+      [...nodes].map(([id, node]) => [
+        id,
+        {
+          position: node.position.toArray(),
+          quaternion: node.quaternion.toArray(),
+          scale: node.scale.toArray(),
+          alphas: (() => {
+            const a = [];
+            node.traverse((c) => {
+              if (c.material) a.push(c.material.opacity);
+            });
+            return a;
+          })(),
+        },
+      ]),
+    ),
+  });
   dispose = () => {
     cancelAnimationFrame(frame);
     observer.disconnect();
@@ -414,8 +524,10 @@ function render(host, spec, options = {}) {
 }
 window.visuals = {
   render,
+  capture: () => capture(),
   clear: () => {
     dispose();
     dispose = () => {};
+    capture = () => null;
   },
 };

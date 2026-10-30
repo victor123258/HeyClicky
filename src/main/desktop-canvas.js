@@ -36,6 +36,7 @@ class DesktopCanvas {
     this.depth = 0;
     this.step = 0;
     this.reset = 0;
+    this.viewKey = 0;
     this.audio = null;
     this.audioState = "off";
     this.animate = false;
@@ -52,6 +53,7 @@ class DesktopCanvas {
       interactive: this.interactive,
       step: this.step,
       reset: this.reset,
+      viewKey: this.viewKey,
       audio: this.audioState,
       animate: this.animate,
       error: this.lastError,
@@ -107,14 +109,19 @@ class DesktopCanvas {
     });
     w.loadFile(path.join(__dirname, "../renderer/canvas.html"));
   }
-  present(visual, display) {
+  present(visual, display, { preserveView = false } = {}) {
     const spec = validateVisual(JSON.stringify(visual.spec));
     display = display || this.screen.getPrimaryDisplay();
+    const keep = preserveView && this.current?.spec.kind === spec.kind;
+    const oldStep = this.step;
     this.cancelNarration();
     this.current = { ...visual, spec };
     this.displayId = display.id;
-    this.step = 0;
+    this.step = keep
+      ? Math.min(oldStep, Math.max(0, (spec.steps?.length || 1) - 1))
+      : 0;
     this.reset++;
+    if (!keep) this.viewKey++;
     this.lastError = "";
     this.ensure(display);
     this.setInteractive(false);
@@ -192,6 +199,7 @@ class DesktopCanvas {
       this.publish();
     } else if (action === "reset") {
       this.reset++;
+      this.viewKey++;
       this.publish();
     } else if (action === "step") {
       const steps = this.current.spec.steps || [];
@@ -208,8 +216,17 @@ class DesktopCanvas {
     } else throw Error("Unknown desktop canvas action.");
     return this.snapshot();
   }
-  async narrate(tour) {
-    if (!this.canNarrate())
+  async explain(id, signal) {
+    signal.throwIfAborted();
+    if (this.current?.id !== id) return;
+    this.step = 0;
+    await this.narrate(true, { foregroundSignal: signal });
+    signal.throwIfAborted();
+    if (this.lastError) throw Error(this.lastError);
+  }
+  async narrate(tour, { foregroundSignal } = {}) {
+    // Only explain() receives the task's real AbortSignal; IPC never supplies one.
+    if (!foregroundSignal && !this.canNarrate())
       throw Error(
         "Finish the active voice/task before starting guided narration.",
       );
@@ -219,6 +236,9 @@ class DesktopCanvas {
       steps = visual.spec.steps?.length
         ? visual.spec.steps
         : [{ title: visual.spec.title, narration: visual.spec.caption }];
+    const abort = () => controller.abort(foregroundSignal?.reason);
+    foregroundSignal?.throwIfAborted();
+    foregroundSignal?.addEventListener("abort", abort, { once: true });
     this.audioState = tour ? "tour" : "speaking";
     this.animate = tour;
     this.lastError = "";
@@ -229,16 +249,37 @@ class DesktopCanvas {
         if (this.current !== visual) return;
         this.step = i;
         this.publish();
+        const began = Date.now();
         await this.speak(
           steps[i].narration || steps[i].title,
           controller.signal,
         );
+        const remaining =
+          (steps[i].poses?.length ? (steps[i].durationMs ?? 650) : 0) -
+          (Date.now() - began);
+        if (tour && remaining > 0)
+          await new Promise((resolve, reject) => {
+            const finish = () => {
+              clearTimeout(timer);
+              controller.signal.removeEventListener("abort", abort);
+              resolve();
+            };
+            const abort = () => {
+              clearTimeout(timer);
+              controller.signal.removeEventListener("abort", abort);
+              reject(controller.signal.reason);
+            };
+            const timer = setTimeout(finish, remaining);
+            controller.signal.addEventListener("abort", abort, { once: true });
+            if (controller.signal.aborted) abort();
+          });
         if (!tour) break;
       }
     } catch (e) {
       if (!controller.signal.aborted)
         this.lastError = String(e.message || e).slice(0, 240);
     } finally {
+      foregroundSignal?.removeEventListener("abort", abort);
       if (this.audio === controller) {
         this.audio = null;
         this.audioState = "off";

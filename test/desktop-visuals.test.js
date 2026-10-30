@@ -402,3 +402,79 @@ test("talk voice follow-up gets active context and executes update_visual withou
   });
   assert.equal(executed, true);
 });
+test("follow-up preserves view identity/step and reset/new visual explicitly reframes", async () => {
+  const m = manager();
+  const visual = {
+    id: "one",
+    spec: scene({
+      steps: [
+        { title: "a", narration: "a" },
+        { title: "b", narration: "b" },
+      ],
+    }),
+  };
+  m.present(visual);
+  await m.command("step", 1);
+  const key = m.viewKey;
+  m.present({ ...visual, id: "two" }, undefined, { preserveView: true });
+  assert.equal(m.step, 1);
+  assert.equal(m.viewKey, key);
+  assert.equal(m.interactive, false);
+  await m.command("reset");
+  assert.equal(m.viewKey, key + 1);
+  m.present(visual);
+  assert.equal(m.step, 0);
+  assert.equal(m.viewKey, key + 2);
+  m.dispose();
+});
+test("foreground automatic explanation uses task cancellation despite UI narration busy guard", async () => {
+  const c = new AbortController();
+  let audioSignal;
+  const m = manager({
+    canNarrate: () => false,
+    speak: (_text, signal) =>
+      new Promise((resolve, reject) => {
+        audioSignal = signal;
+        signal.addEventListener("abort", () => reject(signal.reason), {
+          once: true,
+        });
+      }),
+  });
+  present(m);
+  const reading = m.explain("one", c.signal);
+  assert.equal(m.audioState, "tour");
+  c.abort();
+  await assert.rejects(reading, { name: "AbortError" });
+  assert.equal(audioSignal.aborted, true);
+  assert.equal(m.audioState, "off");
+  m.dispose();
+});
+test("guide waits for bounded part transitions and cancellation clears a transition wait", async () => {
+  const times = [];
+  const m = manager({ speak: async () => times.push(Date.now()) });
+  m.present({
+    id: "timed",
+    spec: scene({
+      steps: [
+        {
+          title: "move",
+          narration: "Move the part",
+          poses: [{ id: "wing", position: [0, 1, 0] }],
+          durationMs: 80,
+        },
+        { title: "explain", narration: "Now explain" },
+      ],
+    }),
+  });
+  await m.command("tour");
+  assert.ok(times[1] - times[0] >= 70);
+  times.length = 0;
+  m.step = 0;
+  const reading = m.command("tour");
+  await new Promise(setImmediate);
+  await m.command("stop-audio");
+  await reading;
+  assert.equal(times.length, 1);
+  assert.equal(m.audioState, "off");
+  m.dispose();
+});
