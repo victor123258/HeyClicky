@@ -450,6 +450,24 @@ class EdgeVoice {
           undefined,
           15000,
         );
+        if (action === "close") {
+          let report;
+          try {
+            report = JSON.parse(output);
+          } catch {
+            /* Not a verified close response. */
+          }
+          if (
+            report?.action !== "close" ||
+            report.verified !== true ||
+            report.remainingWindows !== 0 ||
+            !Number.isInteger(report.closedWindows) ||
+            report.closedWindows < 0
+          )
+            throw Error(
+              "The dedicated Edge helper window closure could not be verified. Close its window manually.",
+            );
+        }
         if (action !== "close" && (!/^\d+$/.test(output) || Number(output) < 1))
           throw Error(
             "The dedicated Edge helper window state could not be verified.",
@@ -572,11 +590,20 @@ class EdgeVoice {
       server.close();
       server.closeAllConnections?.();
     }
-    if (this.platform === "win32" && this.helperTouched)
-      await this.windowAction("close");
-    for (const timer of this.pendingStops.values()) clearTimeout(timer);
-    this.pendingStops.clear();
-    this.changed("Edge helper closed.");
+    try {
+      if (this.platform === "win32" && this.helperTouched)
+        await this.windowAction("close");
+    } catch (error) {
+      this.changed(
+        "Edge connection stopped, but helper window closure could not be verified. Close the dedicated window manually.",
+      );
+      throw error;
+    } finally {
+      for (const timer of this.pendingStops.values()) clearTimeout(timer);
+      this.pendingStops.clear();
+    }
+    this.helperTouched = false;
+    this.changed("Edge helper window closed; connection stopped.");
     if (deleteProfile)
       await fsp.rm(this.profile, {
         recursive: true,

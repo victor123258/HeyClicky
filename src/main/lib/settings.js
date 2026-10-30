@@ -16,6 +16,7 @@ const DEFAULTS = Object.freeze({
   rate: 0,
   askBeforeActions: true,
   buddy: true,
+  buddySize: "small",
   screenContext: true,
   speak: true,
   startWithWindows: false,
@@ -47,6 +48,8 @@ function validate(input) {
       !/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){1,3}$/.test(s.speechLanguage))
   )
     throw Error("Choose a valid speech recognition language.");
+  if (!["small", "medium", "large"].includes(s.buddySize))
+    throw Error("Choose small, medium or large cursor buddy size.");
   if (!["minimized", "hidden"].includes(s.edgeWindowMode))
     throw Error("Choose minimized or hidden Edge window mode.");
   if (!["windows", "edge"].includes(s.voiceProvider))

@@ -1,7 +1,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const allowed = [
-  "get-settings", "canvas-command", "canvas-present",
+  "get-settings",
+  "canvas-command",
+  "canvas-present",
   "save-settings",
+  "patch-settings",
   "test-key",
   "voices",
   "speech-diagnostics",

@@ -150,6 +150,7 @@ function showApproval(data) {
 function updateConfig(data) {
   if (data.canvasStatus) renderCanvasStatus(data.canvasStatus);
   config = data;
+  $("#buddy-size").value = data.buddySize || "small";
   $("#edge-window-mode").value = data.edgeWindowMode || "hidden";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
@@ -239,12 +240,21 @@ function updateConfig(data) {
   }
 }
 function renderEdgeStatus(data) {
-  if (config) config.edgeBackground = Boolean(data.backgroundAllowed);
+  if (config) {
+    config.edgeBackground = Boolean(data.backgroundAllowed);
+    if (["hidden", "minimized"].includes(data.windowMode)) {
+      // Refresh the cached snapshot too, not just the select. Preserve an
+      // unsaved selection when the server's actual mode has not changed.
+      if (config.edgeWindowMode !== data.windowMode)
+        $("#edge-window-mode").value = data.windowMode;
+      config.edgeWindowMode = data.windowMode;
+    }
+  }
   $("#edge-status").textContent =
     (data.connected ? "Connected. " : "Not connected. ") +
     (data.backgroundAllowed
-      ? "Automatic minimized launches enabled. "
-      : "Automatic minimized launches off. ") +
+      ? "Background launches enabled. "
+      : "Automatic background launches off. ") +
     (data.detail || "");
   $("#edge-disable").hidden = !data.backgroundAllowed;
 }
@@ -378,11 +388,12 @@ $("#edge-close").onclick = safeTask(async () =>
   renderEdgeStatus(await call("edge-close")),
 );
 $("#edge-disable").onclick = safeTask(async () => {
-  const saved = await call("save-settings", {
-    ...config,
+  const saved = await call("patch-settings", {
     edgeBackground: false,
   });
   config.edgeBackground = saved.edgeBackground;
+  if (saved.saveWarnings?.length)
+    notify("Settings saved. " + saved.saveWarnings.join(" "));
   renderEdgeStatus(await call("edge-status"));
 });
 $("#voice-test").onclick = safeTask(async () => {
@@ -439,6 +450,7 @@ $("#settings-form").onsubmit = safeTask(async (e) => {
     voice: $("#voice-select").value,
     speechLanguage: $("#speech-language").value,
     voiceProvider: $("#voice-provider").value,
+    buddySize: $("#buddy-size").value,
     edgeWindowMode: $("#edge-window-mode").value,
     edgeLanguage: $("#edge-language").value.trim(),
     edgeFallback: $("#edge-fallback").checked,
@@ -458,16 +470,21 @@ $("#settings-form").onsubmit = safeTask(async (e) => {
   const key = $("#api-key").value.trim() || undefined;
   const saved = await call("save-settings", value, key);
   updateConfig(saved);
-  $("#save-result").textContent = "✓ Settings saved on this PC";
+  $("#save-result").textContent = saved.saveWarnings?.length
+    ? "Saved with warnings: " + saved.saveWarnings.join(" ")
+    : "✓ Settings saved on this PC";
+  if (saved.saveWarnings?.length)
+    notify("Settings saved. " + saved.saveWarnings.join(" "));
 });
 $("#screen-context").onchange = safeTask(async () => {
   const next = $("#screen-context").checked;
   try {
-    const saved = await call("save-settings", {
-      ...config,
+    const saved = await call("patch-settings", {
       screenContext: next,
     });
     updateConfig(saved);
+    if (saved.saveWarnings?.length)
+      notify("Settings saved. " + saved.saveWarnings.join(" "));
   } catch (e) {
     $("#screen-context").checked = config.screenContext;
     throw e;

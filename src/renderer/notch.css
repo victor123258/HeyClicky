@@ -133,7 +133,7 @@ svg {
   font-weight: 650;
 }
 .wordmark small {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.7px;
   text-transform: uppercase;
   font-weight: 400;
@@ -233,7 +233,7 @@ svg {
   color: #c4cfb0;
 }
 .tabs span {
-  font-size: 11px;
+  font-size: 12px;
   min-width: 14px;
   padding: 1px 4px;
   border-radius: 4px;
@@ -258,7 +258,7 @@ main.surface {
   align-items: center;
 }
 .eyebrow {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1.7px;
   font-weight: 650;
   color: #c1c4ba;
@@ -385,13 +385,13 @@ main.surface {
   font-weight: 600;
 }
 .connect-card p {
-  font-size: 11px;
+  font-size: 12px;
   color: #c0c7b7;
   margin: 4px 0 0;
 }
 .connect-card button {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -447,7 +447,7 @@ main.surface {
   margin-bottom: 6px;
 }
 .starter-grid button > span:last-of-type {
-  font-size: 11px;
+  font-size: 12px;
   color: #c3c5ba;
   line-height: 1.5;
 }
@@ -463,7 +463,7 @@ main.surface {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   color: #c0c4bb;
   letter-spacing: 1.1px;
   margin-bottom: 12px;
@@ -478,7 +478,7 @@ main.surface {
   margin-left: 4px;
 }
 .section-label small {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0;
   color: #c3c5b9;
 }
@@ -508,7 +508,7 @@ main.surface {
   color: #c0c6b9;
 }
 .empty-jobs p {
-  font-size: 11px;
+  font-size: 12px;
   color: #c2c7b8;
   margin: 5px 0 0;
 }
@@ -551,11 +551,11 @@ main.surface {
   margin-bottom: 4px;
 }
 .job-info small {
-  font-size: 11px;
+  font-size: 12px;
   color: #c3c5ba;
 }
 .job-badge {
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 7px;
   border-radius: 6px;
   white-space: nowrap;
@@ -587,7 +587,7 @@ main.surface {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 11px;
+  font-size: 12px;
   color: #c2c6b8;
   margin-bottom: 9px;
 }
@@ -596,7 +596,7 @@ main.surface {
   align-items: center;
   gap: 5px;
   padding: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: #c0c9b5;
 }
 .context-line svg {
@@ -655,7 +655,7 @@ main.surface {
   display: flex;
 }
 .mode-switch button {
-  font-size: 11px;
+  font-size: 12px;
   color: #c1c7b7;
   padding: 4px 10px;
   border-radius: 4px;
@@ -667,7 +667,7 @@ main.surface {
 }
 .enter-hint {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   color: #c2c7b8;
 }
 #send {
@@ -694,7 +694,7 @@ main.surface {
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .voice-line svg {
@@ -715,11 +715,11 @@ main.surface {
 }
 .voice-line #voice-hint {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
 }
 kbd {
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   border: 1px solid #424931;
   padding: 3px 5px;
   border-radius: 4px;
@@ -764,7 +764,7 @@ kbd {
   align-items: center;
   justify-content: space-between;
   padding: 9px 25px;
-  font-size: 11px;
+  font-size: 12px;
   color: #c1c7b8;
 }
 .app-footer i {
@@ -798,7 +798,7 @@ kbd {
   margin: 0 0 5px;
 }
 .chat-heading p {
-  font-size: 11px;
+  font-size: 12px;
   color: #c3c6b8;
   margin: 0;
 }
@@ -810,7 +810,7 @@ kbd {
   width: 14px;
 }
 .quiet-button {
-  font-size: 11px;
+  font-size: 12px;
   color: #c1c6b9;
   padding: 6px;
 }
@@ -846,7 +846,7 @@ kbd {
 .message.user .message-avatar {
   background: #2e3423;
   color: #c2cbb3;
-  font-size: 11px;
+  font-size: 12px;
 }
 .message-content {
   min-width: 0;
@@ -856,12 +856,12 @@ kbd {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   color: #c0c5b9;
   margin: 3px 0 7px;
 }
 .message-meta small {
-  font-size: 11px;
+  font-size: 12px;
   color: #c2c7b7;
 }
 .message-text {
@@ -878,7 +878,7 @@ kbd {
   color: #c0c8b7;
 }
 .step-row {
-  font-size: 11px;
+  font-size: 12px;
   color: #c2c8b7;
   border-left: 1px solid #404931;
   padding: 7px 13px;
@@ -897,7 +897,7 @@ kbd {
   margin-bottom: 15px;
 }
 .task-heading button {
-  font-size: 11px;
+  font-size: 12px;
   color: #cebbb0;
 }
 #notice {
@@ -948,7 +948,7 @@ legend svg {
   height: 14px;
 }
 legend span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: #c4cbb4;
   margin-left: 15px;
@@ -986,12 +986,12 @@ input::placeholder {
 fieldset > small {
   display: block;
   color: #c2c9b6;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
   margin-top: 7px;
 }
 .outline-button {
-  font-size: 11px;
+  font-size: 12px;
   padding: 8px 11px;
   border: 1px solid #404931;
   background: #202020;
@@ -1020,7 +1020,7 @@ fieldset > p {
   flex-wrap: wrap;
 }
 .audio-links button {
-  font-size: 11px;
+  font-size: 12px;
   padding: 0;
   color: #c3cbb4;
 }
@@ -1048,7 +1048,7 @@ fieldset > p {
 }
 .setting-switch small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: #c3cab5;
   line-height: 1.6;
   margin-top: 4px;
@@ -1066,7 +1066,7 @@ input[type="range"] {
 }
 output {
   float: right;
-  font-size: 11px;
+  font-size: 12px;
   color: #c1ccb2;
 }
 .save-row {
@@ -1077,7 +1077,7 @@ output {
   margin: 2px 0 22px;
 }
 .save-row > span {
-  font-size: 11px;
+  font-size: 12px;
   color: #c2cbb4;
 }
 .primary-button {
@@ -1103,7 +1103,7 @@ output {
 .privacy-note {
   display: flex;
   gap: 10px;
-  font-size: 11px;
+  font-size: 12px;
   color: #c1cab4;
   background: #22261a;
   padding: 13px;
@@ -1120,32 +1120,32 @@ output {
 .privacy-note button {
   padding: 0;
   color: #bfcfb0;
-  font-size: 11px;
+  font-size: 12px;
 }
 .danger-row {
   display: flex;
   justify-content: space-between;
   margin: 22px 0;
-  font-size: 11px;
+  font-size: 12px;
   color: #c2c6b9;
 }
 .danger-row button {
   color: #d1b6ae;
-  font-size: 11px;
+  font-size: 12px;
 }
 .edition-note {
   text-align: center;
   color: #c2c8b7;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.9;
 }
 .edition-note button {
-  font-size: 11px;
+  font-size: 12px;
   color: #c2cab5;
 }
 .shortcut-help {
   margin: 0 0 10px !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
 }
 #hotkeys {
   display: grid;
@@ -1154,7 +1154,7 @@ output {
 }
 #hotkeys input {
   font-family: Consolas, monospace;
-  font-size: 11px !important;
+  font-size: 12px !important;
 }
 #safety-warning {
   color: #d6bca8;
@@ -1187,7 +1187,7 @@ output {
 }
 .approval-top span {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 3px;
   color: #d3c5ac;
 }
@@ -1206,7 +1206,7 @@ output {
   overflow-wrap: anywhere;
 }
 .approval-card > p {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
   color: #cfc4af;
 }
@@ -1233,7 +1233,7 @@ output {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   color: #bfc6b8;
 }
@@ -1295,12 +1295,12 @@ output {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   color: #bfc6b9;
   margin: 11px 3px 0;
 }
 .peek-stop {
-  font-size: 11px;
+  font-size: 12px;
   color: #d9b1a6;
 }
 .browser-heading,
@@ -1320,7 +1320,7 @@ body.browser-preview {
 }
 .browser-preview #notch {
   width: min(704px, 100%);
-  height: min(800px, calc(100vh - 32px));
+  height: min(760px, 88vh);
   min-height: 580px;
   flex-shrink: 0;
   box-shadow: 0 25px 80px #2e3c2430;
@@ -1352,7 +1352,7 @@ body.browser-preview {
 }
 .browser-heading b {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   font-weight: 400;
   margin-top: 5px;
@@ -1366,7 +1366,7 @@ body.browser-preview {
   margin: 30px 0;
 }
 .browser-heading small {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1px;
   line-height: 1.9;
   display: block;
@@ -1378,7 +1378,7 @@ body.browser-preview {
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 24px;
-  font-size: 11px;
+  font-size: 12px;
   color: #bfc6b8;
 }
 .browser-controls button,
@@ -1463,7 +1463,7 @@ body.browser-preview {
     padding: 13px;
   }
   .connect-card button {
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 @media (max-height: 680px) {
@@ -1530,7 +1530,7 @@ body.browser-preview {
   white-space: pre-wrap;
 }
 .edge-options > small {
-  font-size: 11px;
+  font-size: 12px;
   color: #e8ece4;
   line-height: 1.8;
   display: block;
@@ -1579,7 +1579,7 @@ main.surface {
 .eyebrow,
 .section-label {
   color: #b3bfd2;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1px;
 }
 .starter-grid > button,
@@ -1673,11 +1673,11 @@ fieldset {
   min-height: 38px;
 }
 .voice-line #voice-hint {
-  font-size: 11px;
+  font-size: 12px;
 }
 .mode-hint {
   margin: 0 0 9px;
-  font-size: 11px;
+  font-size: 12px;
   color: #b2c0d6;
   line-height: 1.5;
 }
@@ -1775,7 +1775,7 @@ select option {
 .app-footer {
   background: #0f1620;
   color: #a7b6cc;
-  font-size: 11px;
+  font-size: 12px;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -1843,7 +1843,7 @@ select option {
 }
 .browser-preview #notch {
   min-height: 0;
-  height: min(800px, calc(100dvh - 28px));
+  height: min(760px, 88dvh);
 }
 ::-webkit-scrollbar {
   width: 7px;
@@ -1984,7 +1984,7 @@ select option {
   color: #d0ddef;
 }
 #visual-help {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   color: #b3bfd3;
 }
@@ -2016,7 +2016,7 @@ select option {
 }
 .canvas-controls button {
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   background: #263445;
   color: #e8efff;
   border: 1px solid #526582;
@@ -2026,7 +2026,7 @@ select option {
 }
 .canvas-controls small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: #c3d4e9;
 }
 .canvas-controls button:focus-visible {
@@ -2035,4 +2035,14 @@ select option {
 #peek:has([data-canvas-controls]:not([hidden])) #peek-jobs,
 #peek:has([data-canvas-controls]:not([hidden])) #open-home {
   display: none;
+}
+
+.buddy-size-field {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.buddy-size-field small {
+  font-size: 12px;
+  line-height: 1.5;
 }

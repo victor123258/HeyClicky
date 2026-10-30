@@ -17,12 +17,15 @@ const path = require("node:path");
 const fs = require("node:fs/promises");
 const crypto = require("node:crypto");
 const { Settings } = require("./lib/settings");
+const { SettingsUpdater } = require("./lib/settings-update");
 const { complete } = require("./lib/llm");
 const { runAgent } = require("./lib/agent");
 const { timeQuestion } = require("./lib/clock");
 const { Voice } = require("./voice");
 const { EdgeVoice } = require("./edge-voice");
 const { Notch } = require("./notch");
+const { notchBounds } = require("./lib/notch-layout");
+const { panelLayout } = require("./lib/window-layout");
 const { Tasks } = require("./lib/tasks");
 const { BackgroundJobs, ApprovalQueue } = require("./lib/background");
 const { searchWeb, text: htmlText } = require("./lib/research");
@@ -62,6 +65,7 @@ let edge,
 let panel,
   tray,
   settings,
+  settingsUpdater,
   speech,
   notch,
   keys,
@@ -212,7 +216,12 @@ function createOverlays() {
     win.webContents.on("did-finish-load", () =>
       win.webContents.send("overlay", {
         type: "init",
-        data: { bounds: display.bounds, buddy: settings.value.buddy },
+        data: {
+          bounds: display.bounds,
+          workArea: display.workArea,
+          buddy: settings.value.buddy,
+          buddySize: settings.value.buddySize,
+        },
       }),
     );
     overlays.push(win);
@@ -1049,46 +1058,65 @@ function installIPC() {
     approval: approvalPublic,
     packaged: app.isPackaged,
   }));
-  handle("save-settings", async (value, key) => {
-    if (controller || listeningMode || requestRunning)
-      throw Error("Stop the current task before changing settings.");
-    const { validate } = require("./lib/settings");
-    const next = validate(value),
-      previous = settings.value;
-    try {
-      if (next.edgeBackground && !settings.value.edgeBackground)
-        throw Error(
-          "Enable background use from the visible Edge helper after a successful test.",
-        );
-      registerHotkeys(next);
-      const saved = settings.save(next, key);
-      app.setLoginItemSettings({
-        openAtLogin: next.startWithWindows,
-        path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe"),
-      });
-      broadcast("buddy", next.buddy);
-      notch?.setEnabled(next.notch);
-      if (!next.desktopVisuals) desktopCanvas.dismiss();
-      edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
-      // Settings are already saved. A window failure is reported separately, not as a failed key/settings save.
-      await edge
-        .applyWindowPreferences(previous)
-        .catch(() =>
-          edge.changed(
-            "Settings saved, but Edge window state could not be verified. Click Hide Edge helper or restore visible setup.",
-          ),
-        );
-      emit("edge-status", edge.status());
-      if (!next.notch) {
-        panel.show();
-        panel.focus();
-      }
-      return saved;
-    } catch (e) {
-      registerHotkeys(previous);
-      throw e;
-    }
+  settingsUpdater = new SettingsUpdater({
+    settings,
+    registerHotkeys,
+    canSave: () => !controller && !listeningMode && !requestRunning,
+    effects: ({ next, previous }) => [
+      {
+        warning:
+          "Windows startup preference could not be applied. Your settings and hotkeys were saved; retry or check Windows startup settings.",
+        run: () =>
+          app.setLoginItemSettings({
+            openAtLogin: next.startWithWindows,
+            path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe"),
+          }),
+      },
+      {
+        warning:
+          "Cursor appearance could not be refreshed. Restart the app to apply it.",
+        run: () => {
+          broadcast("buddy", next.buddy);
+          broadcast("buddy-size", next.buddySize);
+        },
+      },
+      {
+        warning:
+          "Notch visibility could not be refreshed. Restart the app to apply it.",
+        run: () => notch?.setEnabled(next.notch),
+      },
+      {
+        warning: "Desktop visual visibility could not be refreshed.",
+        run: () => {
+          if (!next.desktopVisuals) desktopCanvas.dismiss();
+        },
+      },
+      {
+        warning:
+          "Edge window state could not be verified. Use Hide Edge helper or restore visible setup.",
+        run: async () => {
+          edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
+          await edge.applyWindowPreferences(previous);
+        },
+      },
+      {
+        warning: "Edge status could not be refreshed.",
+        run: () => emit("edge-status", edge.status()),
+      },
+      {
+        warning:
+          "The standalone window could not be opened. Use the tray to reopen it.",
+        run: () => {
+          if (!next.notch) {
+            panel.show();
+            panel.focus();
+          }
+        },
+      },
+    ],
   });
+  handle("save-settings", (value, key) => settingsUpdater.save(value, key));
+  handle("patch-settings", (changes) => settingsUpdater.patch(changes));
   handle("test-key", async () => {
     await complete({
       key: settings.key,
@@ -1212,23 +1240,31 @@ function installIPC() {
       },
     );
     if (result.response !== 1) return false;
-    stop();
-    history = [];
-    app.setLoginItemSettings({ openAtLogin: false });
+    settingsUpdater.freeze();
     try {
-      await edge.dispose({ deleteProfile: true });
-    } catch {
-      throw Error(
-        "Could not remove the dedicated Edge profile. Close only its helper window and retry Delete local data. Your saved key/settings have not been deleted yet.",
-      );
+      // Finish an already committed refresh, but reject queued/new writes so
+      // an old UI request cannot restore settings/key after deletion.
+      await settingsUpdater.whenIdle();
+      stop();
+      history = [];
+      app.setLoginItemSettings({ openAtLogin: false });
+      try {
+        await edge.dispose({ deleteProfile: true });
+      } catch {
+        throw Error(
+          "Could not remove the dedicated Edge profile. Close only its helper window and retry Delete local data. Your saved key/settings have not been deleted yet.",
+        );
+      }
+      settings.delete();
+      edgeClosing = true;
+      await session.defaultSession.clearStorageData();
+      await session.defaultSession.clearCache();
+      quitting = true;
+      app.quit();
+      return true;
+    } finally {
+      if (!quitting) settingsUpdater.resume();
     }
-    settings.delete();
-    edgeClosing = true;
-    await session.defaultSession.clearStorageData();
-    await session.defaultSession.clearCache();
-    quitting = true;
-    app.quit();
-    return true;
   });
   handle("open-link", (name) => {
     const links = {
@@ -1272,7 +1308,7 @@ async function runDesktopSmoke() {
     if (
       !expanded.expanded ||
       notch.window.getBounds().height !==
-        Math.min(800, screen.getPrimaryDisplay().workArea.height)
+        notchBounds(screen.getPrimaryDisplay(), "expanded").height
     )
       throw Error("Notch did not expand through its trusted bridge.");
     await notch.window.webContents.executeJavaScript(
@@ -1489,12 +1525,8 @@ else {
         native,
         getBackground: () => settings.value.edgeBackground,
         getWindowMode: () => settings.value.edgeWindowMode,
-        onBackground: (allowed, windowMode) => {
-          settings.save({
-            ...settings.value,
-            edgeBackground: allowed,
-            ...(windowMode ? { edgeWindowMode: windowMode } : {}),
-          });
+        onBackground: async (allowed, windowMode) => {
+          await settingsUpdater.updateEdge(allowed, windowMode);
           emit("edge-status", edge.status());
         },
         onStatus: (data) => emit("edge-status", data),
@@ -1526,10 +1558,7 @@ else {
       session.defaultSession.setPermissionCheckHandler(() => false);
       panel = new BrowserWindow({
         show: false,
-        width: 1100,
-        height: 790,
-        minWidth: 850,
-        minHeight: 650,
+        ...panelLayout(screen.getPrimaryDisplay()),
         title: "HeyClicky Community",
         backgroundColor: "#f6f7fb",
         autoHideMenuBar: true,
@@ -1565,6 +1594,14 @@ else {
         else panel.show();
       });
       const displayChanged = () => {
+        if (panel && !panel.isDestroyed()) {
+          const { minWidth, minHeight, ...bounds } = panelLayout(
+            screen.getDisplayMatching(panel.getBounds()),
+            panel.getBounds(),
+          );
+          panel.setMinimumSize(minWidth, minHeight);
+          if (!panel.isMaximized()) panel.setBounds(bounds);
+        }
         desktopCanvas.refresh();
         createOverlays();
         notch?.render();
@@ -1629,6 +1666,7 @@ else {
     });
   app.on("before-quit", (event) => {
     quitting = true;
+    settingsUpdater?.freeze();
     keys?.stop();
     stop();
     globalShortcut.unregisterAll();
@@ -1636,9 +1674,16 @@ else {
     if (edge && !edgeClosing) {
       event.preventDefault();
       edgeClosing = true;
-      edge
-        .dispose()
-        .catch(() => {})
+      (async () => {
+        await settingsUpdater?.whenIdle();
+        await edge.dispose();
+      })()
+        .catch(() =>
+          dialog.showErrorBox(
+            "Edge helper may still be open",
+            "The app could not verify that the dedicated Edge helper window closed. Please close that window manually. Your normal Edge browser windows were not targeted.",
+          ),
+        )
         .finally(() => app.quit());
     }
   });

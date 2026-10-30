@@ -266,7 +266,18 @@ test("Hidden background window is opt-in and visible setup restores it", async (
   assert.equal(f.edge.forceVisible, true);
 });
 
-function fakeNative(edge, collect = async () => "1") {
+function fakeNative(
+  edge,
+  collect = async (input) =>
+    input.action === "close"
+      ? JSON.stringify({
+          action: "close",
+          verified: true,
+          remainingWindows: 0,
+          closedWindows: 1,
+        })
+      : "1",
+) {
   const actions = [];
   edge.native = {
     launch: (script, args, input) => {
@@ -435,4 +446,66 @@ test("Approved cold launches request hiding before a helper stream connects; can
   } finally {
     f.edge.active = null;
   }
+});
+
+test("close requires explicit verified-zero-window protocol; old count/failed reports are rejected", async (t) => {
+  const f = await fixture(t);
+  for (const report of [
+    "0",
+    "1",
+    "{}",
+    JSON.stringify({
+      action: "close",
+      verified: false,
+      remainingWindows: 0,
+      closedWindows: 1,
+    }),
+    JSON.stringify({
+      action: "close",
+      verified: true,
+      remainingWindows: 1,
+      closedWindows: 1,
+    }),
+  ]) {
+    fakeNative(f.edge, async () => report);
+    await assert.rejects(
+      f.edge.windowAction("close"),
+      /closure could not be verified/,
+    );
+  }
+  fakeNative(f.edge, async () =>
+    JSON.stringify({
+      action: "close",
+      verified: true,
+      remainingWindows: 0,
+      closedWindows: 0,
+    }),
+  );
+  await f.edge.windowAction("close");
+});
+test("failed closure stops connection, clears timers and reports failure without deleting the profile or claiming closed", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  f.edge.platform = "win32";
+  f.edge.helperTouched = true;
+  fakeNative(f.edge, async () => {
+    throw Error("Native helper window is still open");
+  });
+  const pending = setTimeout(() => {
+    throw Error("Leaked stop timer");
+  }, 2000);
+  f.edge.pendingStops.set("old", pending);
+  const marker = path.join(f.edge.profile, "marker");
+  await fs.mkdir(f.edge.profile, { recursive: true });
+  await fs.writeFile(marker, "keep");
+  await assert.rejects(f.edge.dispose({ deleteProfile: true }), /still open/);
+  assert.equal(f.edge.stream, null);
+  assert.equal(f.edge.pendingStops.size, 0);
+  assert.match(f.edge.status().detail, /closure could not be verified/);
+  assert.equal(await fs.readFile(marker, "utf8"), "keep");
+  fakeNative(f.edge);
+  await f.edge.dispose({ deleteProfile: true });
+  assert.match(f.edge.status().detail, /window closed/);
+  assert.equal(f.edge.helperTouched, false);
+  await assert.rejects(fs.stat(marker), /ENOENT/);
 });
