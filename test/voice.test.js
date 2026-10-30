@@ -110,3 +110,10 @@ test("Synchronous primary provider launch failure ends instead of sticking in St
   assert.equal(f.errors[0].message, "policy blocked");
   assert.deepEqual(f.ends, [{ ok: false }]);
 });
+test("Explicit helper Stop never falls back or starts another microphone", () => {
+  const f = setup();
+  f.edge.calls[0][4]({ ok: false, cancelled: true });
+  assert.equal(f.windows.calls.length, 0);
+  assert.deepEqual(f.errors, []);
+  assert.deepEqual(f.ends, [{ ok: false, cancelled: true }]);
+});

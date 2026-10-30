@@ -127,7 +127,7 @@ test("Helper held recognition never submits before finish and acknowledges Stop 
   assert.equal(f.events.filter((e) => e.type === "final").length, 1);
   assert.ok(f.events.some((e) => e.type === "stopped" && e.id === "two"));
 });
-test("Visible test cannot replace an active app microphone; helper Stop reports error", async (t) => {
+test("Visible test cannot replace an active app microphone; helper Stop cancels the turn", async (t) => {
   const f = await fixture(t);
   await f.send({ type: "start", id: "active", mode: "talk", held: true });
   f.w.document.querySelector("#test").click();
@@ -136,5 +136,5 @@ test("Visible test cannot replace an active app microphone; helper Stop reports 
   f.w.document.querySelector("#stop").click();
   await wait();
   assert.equal(f.recorders[0].aborted, true);
-  assert.ok(f.events.some((e) => e.type === "error" && e.id === "active"));
+  assert.ok(f.events.some((e) => e.type === "cancelled" && e.id === "active"));
 });

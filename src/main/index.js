@@ -598,6 +598,11 @@ function listen(mode, held = false) {
         listeningMode = null;
         heldTurn = null;
         setState("idle");
+        if (result.cancelled)
+          emit(
+            "voice-cancelled",
+            "Recording cancelled in Edge. No voice request was submitted.",
+          );
         if (result.ok && transcript && mode !== "test") {
           try {
             submit(transcript, mode, undefined, display);

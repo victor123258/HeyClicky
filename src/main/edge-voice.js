@@ -237,6 +237,12 @@ class EdgeVoice {
     }
     const session = this.active;
     if (!session || event.id !== session.id) return; // stale, stopped or replaced turn
+    if (event.type === "cancelled") {
+      this.active = null;
+      clearTimeout(session.timer);
+      session.onEnd({ ok: false, cancelled: true });
+      return;
+    }
     if (event.type === "ready") {
       if (session.ready) return;
       session.ready = true;

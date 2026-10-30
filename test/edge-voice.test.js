@@ -234,3 +234,14 @@ test("Real NDJSON connection carries start/finish and replacement cannot write a
   await reader.cancel();
   await replacement.body.cancel();
 });
+test("Explicit helper cancellation releases active turn without a recognition error", async (t) => {
+  const f = await fixture(t),
+    id = f.listen();
+  await Promise.resolve();
+  await f.edge.event({ type: "cancelled", id });
+  await f.edge.event({ type: "final", id, text: "late" });
+  assert.equal(f.edge.active, null);
+  assert.deepEqual(f.ends, [{ ok: false, cancelled: true }]);
+  assert.deepEqual(f.errors, []);
+  assert.deepEqual(f.texts, []);
+});

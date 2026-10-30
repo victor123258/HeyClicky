@@ -284,9 +284,8 @@
     stopLocal();
     if (active && !active.local)
       post({
-        type: "error",
+        type: "cancelled",
         id: active.id,
-        error: "stopped in Edge helper",
       }).catch(disconnect);
   };
   $("#consent").onchange = () =>

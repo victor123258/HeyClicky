@@ -52,6 +52,7 @@ class Voice {
         complete = true;
         if (
           !result.ok &&
+          !result.cancelled &&
           provider === "edge" &&
           settings.edgeFallback &&
           !delivered &&
@@ -66,7 +67,8 @@ class Voice {
         }
         this.engine = null;
         try {
-          if (!result.ok) onError(failure || Error("Voice input stopped."));
+          if (!result.ok && !result.cancelled)
+            onError(failure || Error("Voice input stopped."));
         } finally {
           onEnd(result);
         }
