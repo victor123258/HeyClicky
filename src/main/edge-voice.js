@@ -143,9 +143,9 @@ class EdgeVoice {
     if (req.method === "GET" && req.url === "/stream") {
       if (this.stream) {
         this.send({ type: "cancel" });
-        this.stream.end();
         if (this.active?.started)
           this.fail(Error("A new Edge helper replaced the active connection."));
+        this.stream.end();
       }
       this.helperTouched = true;
       this.stream = res;
@@ -158,6 +158,7 @@ class EdgeVoice {
       this.changed(
         "Edge helper connected. Recognition still depends on browser permission and online service availability.",
       );
+      res.on("error", () => res.destroy());
       res.on("close", () => {
         if (this.stream === res) {
           this.stream = null;
@@ -206,7 +207,7 @@ class EdgeVoice {
     res.end("Not found.");
   }
   send(data) {
-    if (this.stream && !this.stream.destroyed)
+    if (this.stream && !this.stream.destroyed && !this.stream.writableEnded)
       this.stream.write(JSON.stringify(data) + "\n");
   }
   async event(event) {

@@ -16,20 +16,27 @@
     window.SpeechRecognition || window.webkitSpeechRecognition;
   const provider = Boolean(Recognition) && /Edg\//.test(navigator.userAgent);
   const status = (text) => ($("#status").textContent = text);
-  async function post(event) {
-    const response = await fetch("/event", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(event),
+  // Preserve ready / dictation chunk / final ordering across loopback requests.
+  let eventQueue = Promise.resolve();
+  function post(event) {
+    const task = eventQueue.then(async () => {
+      const response = await fetch("/event", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(event),
+      });
+      if (!response.ok)
+        throw Error(
+          "The desktop app rejected this helper event. Reopen Edge setup from the app.",
+        );
     });
-    if (!response.ok)
-      throw Error(
-        "The desktop app rejected this helper event. Reopen Edge setup from the app.",
-      );
+    eventQueue = task.catch(() => {});
+    return task;
   }
+
   function stopLocal(cancel = true) {
     const previous = recognition;
     recognition = null;

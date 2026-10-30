@@ -190,3 +190,47 @@ test("Edge failure without setup is actionable and releases the turn", async (t)
   assert.equal(f.edge.active, null);
   assert.deepEqual(f.ends, [{ ok: false }]);
 });
+
+test("Real NDJSON connection carries start/finish and replacement cannot write after end", async (t) => {
+  const f = await fixture(t),
+    edge = f.edge;
+  edge.send = EdgeVoice.prototype.send.bind(edge);
+  const response = await f.request("/stream"),
+    reader = response.body.getReader();
+  let pending = "";
+  async function line() {
+    while (!pending.includes("\n")) {
+      const { value, done } = await reader.read();
+      if (done) throw Error("Stream ended");
+      pending += new TextDecoder().decode(value);
+    }
+    const end = pending.indexOf("\n"),
+      item = JSON.parse(pending.slice(0, end));
+    pending = pending.slice(end + 1);
+    return item;
+  }
+  assert.equal((await line()).type, "hello");
+  assert.equal(edge.connected, true);
+  edge.listen(
+    "talk",
+    (text) => f.texts.push(text),
+    () => {},
+    (error) => f.errors.push(error),
+    (r) => f.ends.push(r),
+    "en-US",
+    { held: true },
+  );
+  const start = await line();
+  assert.equal(start.type, "start");
+  await edge.event({ type: "ready", id: start.id });
+  const replacement = await f.request("/stream");
+  assert.equal(replacement.status, 200);
+  assert.equal(f.errors.length, 1);
+  assert.match(f.errors[0].message, /replaced/);
+  assert.deepEqual(f.ends, [{ ok: false }]);
+  // An old helper can acknowledge its exact cancellation without touching the new stream.
+  await edge.event({ type: "stopped", id: start.id });
+  assert.equal(edge.pendingStops.size, 0);
+  await reader.cancel();
+  await replacement.body.cancel();
+});
