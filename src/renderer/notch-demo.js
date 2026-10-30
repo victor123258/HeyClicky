@@ -21,7 +21,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
     edgeBackground: false,
     edgeWindowMode: "minimized",
     rate: 0,
-    notch: true,
+    notch: true, desktopVisuals:true,
     captions: true,
     speak: true,
     buddy: true,
@@ -91,6 +91,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
         event("edge-status", data);
         return { ok: true, data };
       }
+      if(name==='canvas-present'||name==='canvas-command')return {ok:false,error:'Desktop canvas controls require the Windows app. Open /canvas.html for the standalone visual preview.'};
       if (name === "ask") {
         const id = ["agent", "background"].includes(args[1])
           ? `demo-${Date.now()}`

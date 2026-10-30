@@ -220,3 +220,65 @@ test("Background job mode and structured visual preview are available from the n
     dom.window.close();
   }
 });
+test("desktop canvas controls work without opening chat and desktop setting round-trips", async () => {
+  const dom = new JSDOM(
+    fs.readFileSync(path.join(root, "notch.html"), "utf8"),
+    { runScripts: "outside-only", url: "http://preview/notch.html" },
+  );
+  try {
+    dom.window.eval(fs.readFileSync(path.join(root, "notch-demo.js"), "utf8"));
+    let appEvent;
+    const old = dom.window.notchDemo.onAppEvent;
+    dom.window.notchDemo.onAppEvent = (fn) => {
+      appEvent = fn;
+      old(fn);
+    };
+    dom.window.eval(fs.readFileSync(path.join(root, "notch.js"), "utf8"));
+    await wait();
+    const d = dom.window.document;
+    appEvent({
+      type: "canvas-status",
+      data: {
+        id: "test",
+        title: "Safe desktop visual",
+        visible: true,
+        interactive: false,
+        audio: "off",
+      },
+    });
+    assert.equal(d.querySelector("[data-canvas-controls]").hidden, false);
+    assert.equal(
+      d.querySelector("[data-canvas-title]").textContent,
+      "Safe desktop visual",
+    );
+    assert.equal(d.querySelector("[data-canvas=passthrough]").disabled, true);
+    assert.equal(d.querySelector("[data-canvas=stop-audio]").hidden, true);
+    appEvent({
+      type: "canvas-status",
+      data: {
+        id: "test",
+        title: "Safe desktop visual",
+        visible: true,
+        interactive: true,
+        audio: "tour",
+      },
+    });
+    assert.equal(d.querySelector("[data-canvas=interact]").disabled, true);
+    assert.equal(d.querySelector("[data-canvas=stop-audio]").hidden, false);
+    d.querySelector("[data-route=settings]").click();
+    await wait();
+    d.querySelector("#desktop-visuals").checked = false;
+    d.querySelector("#settings-form").dispatchEvent(
+      new dom.window.Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await wait();
+    assert.equal(
+      (await dom.window.notchDemo.call("get-settings")).data.desktopVisuals,
+      false,
+    );
+    appEvent({ type: "canvas-status", data: { id: null, audio: "off" } });
+    assert.equal(d.querySelector("[data-canvas-controls]").hidden, true);
+  } finally {
+    dom.window.close();
+  }
+});

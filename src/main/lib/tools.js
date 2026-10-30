@@ -24,8 +24,13 @@ const definitions = [
   ],
   [
     "show_visual",
-    'Show a safe interactive visual in the notch. spec is JSON: {kind:"chart",title,caption,items:[{label,value}]} OR {kind:"diagram",title,caption,nodes:[{id,label,x,y}],edges:[{from,to,label}]} coordinates 0–1000 OR {kind:"scene3d",title,caption,objects:[{type:"box|sphere|cylinder|cone",label,color:"#aabbcc",x,y,z,size}]} x/y/z -10..10,size 0.1..5. No scripts/assets. Caption must explain the visual and uncertainty. At most 20 chart items/nodes or 24 3D objects.',
-    { spec: string("Structured visual JSON, max 20,000 characters") },
+    'Show a structured visual over the desktop (transparent, click-through by default) and archive it in the notch. JSON: {kind,title,caption,placement?:"left|center|right",steps?:[{title,narration,highlight:[ids],visible?:[ids]}]}. kind chart: items:[{id?,label,value}] max20. diagram: nodes:[{id,label,x,y}],edges:[{from,to,label}] coords0–1000. canvas2d: elements:[{id?,type:"box|ellipse|arrow|path|text",x,y,x2?,y2?,label?,color?:"#RRGGBB",fill?:"none|#RRGGBB",fontSize?:12..48,points?:[[x,y],...]}] max80. scene3d: objects:[{id?,type:"box|sphere|cylinder|cone|torus|plane|arrow|line|label|mesh",label,color:"#RRGGBB",x,y,z,size,rotation?:[degrees,degrees,degrees],scale?:[x,y,z],opacity?,wireframe?,to?:[x,y,z],points?:[[x,y,z],...],vertices?:[[x,y,z],...],faces?:[[index,index,index],...],motion?:{mode:"rotate|pulse",axis:"x|y|z",speed:-1..1}}] max40. Positions -20..20, size .1..5, local mesh vertices -5..5 max256, faces max512; rotation ±360, scale .01..10. Arrow needs to; line needs points; mesh needs vertices/faces. Up to12 teaching steps reference stable IDs. Motion is user-controlled, at most8 objects; respect reduced motion. Use meshes and transforms to assemble custom educational objects. No code, URLs, textures, shaders or imported models. Caption must disclose uncertainty; not CAD or simulation.',
+    { spec: string("Structured visual JSON, max 60,000 characters") },
+  ],
+  [
+    "update_visual",
+    "Edit the current visual for voice follow-ups without starting over. changes is JSON with optional title,caption,placement,steps; for 3D objects:[{id,...fields to change}] merges by stable id (new IDs require complete objects), remove:[ids]. Replace entire items/nodes/edges/elements arrays for 2D changes. Use IDs from active visual context. Removing objects referenced by steps also requires updating steps. This is data, not executable code; no arbitrary fields.",
+    { changes: string("Visual patch JSON, max 30,000 characters") },
   ],
   [
     "get_time",
@@ -124,10 +129,12 @@ function validateTool(name, args) {
         (key === "content"
           ? 32000
           : key === "spec"
-            ? 20000
-            : key === "text"
-              ? 8000
-              : 4000) ||
+            ? 60000
+            : key === "changes"
+              ? 30000
+              : key === "text"
+                ? 8000
+                : 4000) ||
         value.includes("\0"))
     )
       throw Error(`${key} is too long or contains null bytes.`);
@@ -149,12 +156,24 @@ function validateTool(name, args) {
     throw Error("Search query must be 1–500 characters.");
   if (name === "create_document") require("./documents").validateDocument(args);
   if (name === "show_visual") require("./visuals").validateVisual(args.spec);
+  if (name === "update_visual") {
+    if (args.changes.length > 30000) throw Error("Visual patch too large.");
+    const patch = JSON.parse(args.changes);
+    if (!patch || typeof patch !== "object" || Array.isArray(patch))
+      throw Error("Visual patch must be an object.");
+  }
   return args;
 }
 function needsApproval(name, ask = true) {
   // Reading files and fetching URLs can expose private data; never silently approve them.
   return (
-    !["screenshot", "draw", "get_time", "show_visual"].includes(name) &&
+    ![
+      "screenshot",
+      "draw",
+      "get_time",
+      "show_visual",
+      "update_visual",
+    ].includes(name) &&
     (ask ||
       [
         "powershell",

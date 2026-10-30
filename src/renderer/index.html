@@ -1,86 +1,649 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'">
-<title>HeyClicky Community</title><link rel="stylesheet" href="styles.css">
-</head>
-<body>
-<div class="app">
-<aside class="sidebar">
-  <a class="brand" href="#" aria-label="HeyClicky home"><span class="brand-icon">↖<i>✦</i></span><span>heyclicky<span class="community">COMMUNITY EDITION</span></span></a>
-  <div class="workspace"><span class="workspace-icon">H</span><div>My workspace<small>Personal · Windows</small></div><span class="workspace-dot"></span></div>
-  <div class="nav-label">YOUR BUDDY</div>
-  <nav>
-    <button class="nav-item active" data-view="chat"><span class="nav-icon">◫</span>Conversation<span class="nav-key">⌘</span></button>
-    <button class="nav-item" data-view="activity"><span class="nav-icon">◷</span>Activity<span id="activity-count" class="count">0</span></button>
-    <button class="nav-item" data-view="shortcuts"><span class="nav-icon">⌨</span>Keyboard shortcuts</button>
-    <button class="nav-item" data-view="privacy"><span class="nav-icon">◇</span>Privacy & safety</button>
-  </nav>
-  <div class="sidebar-bottom">
-    <div class="tip"><span>✦ A LITTLE SUPERPOWER</span><p>Less switching tabs.<br>More figuring things out.</p><div class="tip-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd></div><small>to talk, from anywhere</small></div>
-    <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Settings<span id="connection-dot" class="connection-dot"></span></button>
-    <button class="profile" id="github-link"><span class="avatar">Y</span><span>Your desktop, upgraded<small>Independent & open source ↗</small></span></button>
-  </div>
-</aside>
-<main>
-  <header class="topbar"><div><span id="page-title">Conversation</span><span class="header-divider">/</span><span class="muted" id="page-subtitle">A little help, right here</span></div><div class="top-actions"><span class="status-pill"><i id="status-dot"></i><span id="status-label">Ready to help</span></span><button id="hide" class="icon-button" title="Hide to system tray" aria-label="Hide to tray">−</button></div></header>
-  <div id="demo-banner" class="demo-banner" hidden>INTERACTIVE UI PREVIEW · Desktop features run in the Windows app. No screenshots or API requests are made here. <a href="notch.html">Preview the notch ↗</a></div>
-  <div id="toast" role="alert" hidden></div>
-  <section id="view-chat" class="view chat-view">
-    <div class="chat-toolbar"><div class="mode-switch" role="group" aria-label="Assistant mode"><button class="selected" data-mode="talk">✦ Talk</button><button data-mode="agent">↗ Agent<span class="beta">BETA</span></button></div><button id="clear" class="text-button">↺ New conversation</button></div>
-    <div id="conversation" aria-live="polite">
-      <div class="welcome" id="welcome">
-        <div class="eyebrow"><span></span>YOUR DESKTOP HAS A NEW PLUS ONE</div>
-        <div class="buddy-hero"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="spark spark-one">✦</span><span class="spark spark-two">✧</span><div class="buddy-shape"><svg viewBox="0 0 100 110" aria-hidden="true"><path d="M20 10L84 67 54 72 43 99Z"/><path class="buddy-eye" d="M40 43l1 7m12-1 1 7"/></svg></div><span class="hello-tag">hey, you! <span>✋</span></span></div>
-        <h1>Big ideas. Little buddy.</h1><p>I can see what you see, help you figure things out,<br>and take the busywork off your hands.</p>
-        <div class="suggestions">
-          <button class="suggestion" data-prompt="Help me understand what is on my screen. Walk me through the next step."><span class="card-icon lavender">◉</span><strong>Help me with this</strong><span>Make sense of what's on screen</span><b>↗</b></button>
-          <button class="suggestion" data-prompt="Teach me how to use the app on my screen, one step at a time."><span class="card-icon peach">✧</span><strong>Show me how</strong><span>Learn a tool, one step at a time</span><b>↗</b></button>
-          <button class="suggestion" data-prompt="What task would you like me to automate?" data-agent-card="true"><span class="card-icon mint">↗</span><strong>Take it from here</strong><span>Let an agent lend a hand</span><b>↗</b></button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    />
+    <title>HeyClicky Community</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="HeyClicky home"
+          ><span class="brand-icon">↖<i>✦</i></span
+          ><span
+            >heyclicky<span class="community">COMMUNITY EDITION</span></span
+          ></a
+        >
+        <div class="workspace">
+          <span class="workspace-icon">H</span>
+          <div>My workspace<small>Personal · Windows</small></div>
+          <span class="workspace-dot"></span>
         </div>
-        <div class="welcome-note"><span>◇</span> Your screen is shared only when you ask. You're always in control.</div>
-      </div>
-      <div id="messages"></div>
-    </div>
-    <div class="composer-area">
-      <div id="approval-card" hidden role="alertdialog" aria-label="Action approval"><div class="approval-heading"><span>◇ Your permission, first</span><span>Expires in 2 minutes</span></div><strong id="approval-name"></strong><pre id="approval-args"></pre><p>Review the full action. Files and command output may be sent to your AI provider. Desktop input goes to the window behind this app.</p><div><button class="secondary" id="deny">Deny & stop</button><button class="primary" id="allow">Allow this action</button></div></div>
-      <div id="voice-feedback" class="voice-feedback" role="status" aria-live="polite" hidden></div>
-      <div class="context-row"><label class="context-toggle"><input type="checkbox" id="screen-context" checked><span class="toggle-mini"></span><span>▣ Screen context</span></label><span id="context-hint">Display under your cursor · captured on send</span></div>
-      <form id="composer"><textarea id="prompt" placeholder="Ask anything about your screen…" rows="2" aria-label="Your message" maxlength="12000"></textarea><div class="composer-bottom"><div class="composer-tools"><button type="button" id="voice" class="voice-button" title="Speak a question">♩ <span>Talk to Clicky</span></button><button type="button" id="dictate" class="text-button" title="Type speech into the active application">⌨ Dictate</button></div><div class="send-tools"><span id="enter-hint">Enter to send</span><button type="button" id="stop" class="stop-button" hidden>■ Stop</button><button type="submit" id="send" aria-label="Send message">↑</button></div></div></form>
-      <div class="footer-note"><span>✦ Powered by your model. Guided by you.</span><span id="model-label">OpenRouter <span>↗</span></span></div>
-    </div>
-  </section>
-  <section id="view-activity" class="view content-view" hidden><div class="section-heading"><span class="eyebrow">THE PAPER TRAIL</span><h1>A little transparency.</h1><p>Actions and progress from this session. Nothing is saved to disk.</p></div><div id="activity-list" class="activity-list"><div class="empty-state">◷<h3>No activity yet</h3><p>When your buddy uses a tool, you'll see it here.</p></div></div></section>
-  <section id="view-shortcuts" class="view content-view" hidden><div class="section-heading"><span class="eyebrow">ALWAYS A KEYSTROKE AWAY</span><h1>Small shortcuts. Big help.</h1><p>Use these from any app. Change them in Settings.</p></div><div id="shortcut-list" class="info-card"></div><div class="inline-note">Closing the panel keeps your buddy in the system tray. Choose Quit from the tray to exit.</div></section>
-  <section id="view-privacy" class="view content-view" hidden><div class="section-heading"><span class="eyebrow">YOUR COMPUTER. YOUR CALL.</span><h1>A buddy, not a backseat driver.</h1><p>Know exactly what leaves your computer, and when.</p></div><div class="privacy-grid"><article class="info-card"><span class="card-icon lavender">▣</span><h3>Only when you ask</h3><p>Screenshots are captured for a request, or when the agent explicitly rechecks. They stay in memory and go to OpenRouter and your selected model provider. Turn screen context off at any time.</p></article><article class="info-card"><span class="card-icon mint">◇</span><h3>You hold the keys</h3><p>Your API key is encrypted with Windows DPAPI. Conversation text stays in memory until you clear it or quit. No HeyClicky account or backend is involved.</p></article><article class="info-card"><span class="card-icon peach">✓</span><h3>Permission before action</h3><p>Commands, file access, web requests and opening links always ask. Clicking and typing ask by default. Denying an action stops the task. Use the stop hotkey to interrupt.</p></article><article class="info-card"><span class="card-icon lavender">↗</span><h3>Choose your provider</h3><p>OpenRouter and model providers have their own data retention policies. Review them before sharing sensitive screens, files, or conversations.</p><button class="text-button" id="privacy-link">OpenRouter privacy settings ↗</button></article></div><div class="inline-note">Independent community project. Not affiliated with, endorsed by, or connected to the official HeyClicky service. Agents can make mistakes; review every approval.</div></section>
-  <section id="view-settings" class="view content-view" hidden><div class="section-heading compact"><span class="eyebrow">MAKE YOURSELF AT HOME</span><h1>Your buddy, your way.</h1><p>One API key. Your choice of model. No subscription to this app.</p></div>
-    <form id="settings-form">
-      <div class="settings-card"><div class="settings-card-title"><span class="card-icon lavender">✦</span><div><h3>AI connection</h3><p>Use a vision and tool-capable OpenRouter model.</p></div><span id="key-status" class="small-badge">Not connected</span></div><label for="api-key">OpenRouter API key</label><div class="input-with-button"><input type="password" id="api-key" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false"><button type="button" class="secondary" id="get-key">Get a key ↗</button></div><small id="key-help">Encrypted on this PC. Never sent to this project's servers.</small><label for="model">Model ID</label><input id="model" placeholder="openai/gpt-4.1-mini" required><small>Example: openai/gpt-4.1-mini. Model usage is billed by OpenRouter.</small><div class="settings-test"><button type="button" id="test-key" class="secondary">↗ Test saved connection</button><span id="test-result" role="status"></span></div></div>
-      <div class="settings-card"><div class="settings-card-title"><span class="card-icon peach">♩</span><div><h3>Voice & personality</h3><p>Windows local input or optional online Edge speech.</p></div></div><div class="speech-input-settings"><label for="voice-provider">Voice input provider</label>
-                <select id="voice-provider"><option value="windows">Windows speech · local</option><option value="edge">Microsoft Edge · online, experimental</option></select>
+        <div class="nav-label">YOUR BUDDY</div>
+        <nav>
+          <button class="nav-item active" data-view="chat">
+            <span class="nav-icon">◫</span>Conversation<span class="nav-key"
+              >⌘</span
+            >
+          </button>
+          <button class="nav-item" data-view="activity">
+            <span class="nav-icon">◷</span>Activity<span
+              id="activity-count"
+              class="count"
+              >0</span
+            >
+          </button>
+          <button class="nav-item" data-view="shortcuts">
+            <span class="nav-icon">⌨</span>Keyboard shortcuts
+          </button>
+          <button class="nav-item" data-view="privacy">
+            <span class="nav-icon">◇</span>Privacy & safety
+          </button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="tip">
+            <span>✦ A LITTLE SUPERPOWER</span>
+            <p>Less switching tabs.<br />More figuring things out.</p>
+            <div class="tip-keys">
+              <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd>
+            </div>
+            <small>to talk, from anywhere</small>
+          </div>
+          <button class="nav-item" data-view="settings">
+            <span class="nav-icon">⚙</span>Settings<span
+              id="connection-dot"
+              class="connection-dot"
+            ></span>
+          </button>
+          <button class="profile" id="github-link">
+            <span class="avatar">Y</span
+            ><span
+              >Your desktop, upgraded<small
+                >Independent & open source ↗</small
+              ></span
+            >
+          </button>
+        </div>
+      </aside>
+      <main>
+        <header class="topbar">
+          <div>
+            <span id="page-title">Conversation</span
+            ><span class="header-divider">/</span
+            ><span class="muted" id="page-subtitle"
+              >A little help, right here</span
+            >
+          </div>
+          <div class="top-actions">
+            <span class="status-pill"
+              ><i id="status-dot"></i
+              ><span id="status-label">Ready to help</span></span
+            ><button
+              id="hide"
+              class="icon-button"
+              title="Hide to system tray"
+              aria-label="Hide to tray"
+            >
+              −
+            </button>
+          </div>
+        </header>
+        <div id="demo-banner" class="demo-banner" hidden>
+          INTERACTIVE UI PREVIEW · Desktop features run in the Windows app. No
+          screenshots or API requests are made here.
+          <a href="notch.html">Preview the notch ↗</a>
+        </div>
+        <div id="toast" role="alert" hidden></div>
+        <section id="view-chat" class="view chat-view">
+          <div class="chat-toolbar">
+            <div class="mode-switch" role="group" aria-label="Assistant mode">
+              <button class="selected" data-mode="talk">✦ Talk</button
+              ><button data-mode="agent">
+                ↗ Agent<span class="beta">BETA</span>
+              </button>
+            </div>
+            <button id="clear" class="text-button">↺ New conversation</button>
+          </div>
+          <div id="conversation" aria-live="polite">
+            <div class="welcome" id="welcome">
+              <div class="eyebrow">
+                <span></span>YOUR DESKTOP HAS A NEW PLUS ONE
+              </div>
+              <div class="buddy-hero">
+                <div class="orbit orbit-one"></div>
+                <div class="orbit orbit-two"></div>
+                <span class="spark spark-one">✦</span
+                ><span class="spark spark-two">✧</span>
+                <div class="buddy-shape">
+                  <svg viewBox="0 0 100 110" aria-hidden="true">
+                    <path d="M20 10L84 67 54 72 43 99Z" />
+                    <path class="buddy-eye" d="M40 43l1 7m12-1 1 7" />
+                  </svg>
+                </div>
+                <span class="hello-tag">hey, you! <span>✋</span></span>
+              </div>
+              <h1>Big ideas. Little buddy.</h1>
+              <p>
+                I can see what you see, help you figure things out,<br />and
+                take the busywork off your hands.
+              </p>
+              <div class="suggestions">
+                <button
+                  class="suggestion"
+                  data-prompt="Help me understand what is on my screen. Walk me through the next step."
+                >
+                  <span class="card-icon lavender">◉</span
+                  ><strong>Help me with this</strong
+                  ><span>Make sense of what's on screen</span><b>↗</b>
+                </button>
+                <button
+                  class="suggestion"
+                  data-prompt="Teach me how to use the app on my screen, one step at a time."
+                >
+                  <span class="card-icon peach">✧</span
+                  ><strong>Show me how</strong
+                  ><span>Learn a tool, one step at a time</span><b>↗</b>
+                </button>
+                <button
+                  class="suggestion"
+                  data-prompt="What task would you like me to automate?"
+                  data-agent-card="true"
+                >
+                  <span class="card-icon mint">↗</span
+                  ><strong>Take it from here</strong
+                  ><span>Let an agent lend a hand</span><b>↗</b>
+                </button>
+              </div>
+              <div class="welcome-note">
+                <span>◇</span> Your screen is shared only when you ask. You're
+                always in control.
+              </div>
+            </div>
+            <div id="messages"></div>
+          </div>
+          <div class="composer-area">
+            <div
+              id="approval-card"
+              hidden
+              role="alertdialog"
+              aria-label="Action approval"
+            >
+              <div class="approval-heading">
+                <span>◇ Your permission, first</span
+                ><span>Expires in 2 minutes</span>
+              </div>
+              <strong id="approval-name"></strong>
+              <pre id="approval-args"></pre>
+              <p>
+                Review the full action. Files and command output may be sent to
+                your AI provider. Desktop input goes to the window behind this
+                app.
+              </p>
+              <div>
+                <button class="secondary" id="deny">Deny & stop</button
+                ><button class="primary" id="allow">Allow this action</button>
+              </div>
+            </div>
+            <div
+              id="voice-feedback"
+              class="voice-feedback"
+              role="status"
+              aria-live="polite"
+              hidden
+            ></div>
+            <div class="canvas-controls" data-canvas-controls hidden>
+              <span data-canvas-title></span>
+              <div>
+                <button data-canvas="interact">Interact</button
+                ><button data-canvas="passthrough">Return clicks</button
+                ><button data-canvas="tour">Read tour</button
+                ><button data-canvas="stop-audio">Stop audio</button
+                ><button data-canvas="dismiss">Dismiss</button>
+              </div>
+              <small data-canvas-status></small>
+            </div>
+            <div class="context-row">
+              <label class="context-toggle"
+                ><input type="checkbox" id="screen-context" checked /><span
+                  class="toggle-mini"
+                ></span
+                ><span>▣ Screen context</span></label
+              ><span id="context-hint"
+                >Display under your cursor · captured on send</span
+              >
+            </div>
+            <form id="composer">
+              <textarea
+                id="prompt"
+                placeholder="Ask anything about your screen…"
+                rows="2"
+                aria-label="Your message"
+                maxlength="12000"
+              ></textarea>
+              <div class="composer-bottom">
+                <div class="composer-tools">
+                  <button
+                    type="button"
+                    id="voice"
+                    class="voice-button"
+                    title="Speak a question"
+                  >
+                    ♩ <span>Talk to Clicky</span></button
+                  ><button
+                    type="button"
+                    id="dictate"
+                    class="text-button"
+                    title="Type speech into the active application"
+                  >
+                    ⌨ Dictate
+                  </button>
+                </div>
+                <div class="send-tools">
+                  <span id="enter-hint">Enter to send</span
+                  ><button type="button" id="stop" class="stop-button" hidden>
+                    ■ Stop</button
+                  ><button type="submit" id="send" aria-label="Send message">
+                    ↑
+                  </button>
+                </div>
+              </div>
+            </form>
+            <div class="footer-note">
+              <span>✦ Powered by your model. Guided by you.</span
+              ><span id="model-label">OpenRouter <span>↗</span></span>
+            </div>
+          </div>
+        </section>
+        <section id="view-activity" class="view content-view" hidden>
+          <div class="section-heading">
+            <span class="eyebrow">THE PAPER TRAIL</span>
+            <h1>A little transparency.</h1>
+            <p>
+              Actions and progress from this session. Nothing is saved to disk.
+            </p>
+          </div>
+          <div id="activity-list" class="activity-list">
+            <div class="empty-state">
+              ◷
+              <h3>No activity yet</h3>
+              <p>When your buddy uses a tool, you'll see it here.</p>
+            </div>
+          </div>
+        </section>
+        <section id="view-shortcuts" class="view content-view" hidden>
+          <div class="section-heading">
+            <span class="eyebrow">ALWAYS A KEYSTROKE AWAY</span>
+            <h1>Small shortcuts. Big help.</h1>
+            <p>Use these from any app. Change them in Settings.</p>
+          </div>
+          <div id="shortcut-list" class="info-card"></div>
+          <div class="inline-note">
+            Closing the panel keeps your buddy in the system tray. Choose Quit
+            from the tray to exit.
+          </div>
+        </section>
+        <section id="view-privacy" class="view content-view" hidden>
+          <div class="section-heading">
+            <span class="eyebrow">YOUR COMPUTER. YOUR CALL.</span>
+            <h1>A buddy, not a backseat driver.</h1>
+            <p>Know exactly what leaves your computer, and when.</p>
+          </div>
+          <div class="privacy-grid">
+            <article class="info-card">
+              <span class="card-icon lavender">▣</span>
+              <h3>Only when you ask</h3>
+              <p>
+                Screenshots are captured for a request, or when the agent
+                explicitly rechecks. They stay in memory and go to OpenRouter
+                and your selected model provider. Turn screen context off at any
+                time.
+              </p>
+            </article>
+            <article class="info-card">
+              <span class="card-icon mint">◇</span>
+              <h3>You hold the keys</h3>
+              <p>
+                Your API key is encrypted with Windows DPAPI. Conversation text
+                stays in memory until you clear it or quit. No HeyClicky account
+                or backend is involved.
+              </p>
+            </article>
+            <article class="info-card">
+              <span class="card-icon peach">✓</span>
+              <h3>Permission before action</h3>
+              <p>
+                Commands, file access, web requests and opening links always
+                ask. Clicking and typing ask by default. Denying an action stops
+                the task. Use the stop hotkey to interrupt.
+              </p>
+            </article>
+            <article class="info-card">
+              <span class="card-icon lavender">↗</span>
+              <h3>Choose your provider</h3>
+              <p>
+                OpenRouter and model providers have their own data retention
+                policies. Review them before sharing sensitive screens, files,
+                or conversations.
+              </p>
+              <button class="text-button" id="privacy-link">
+                OpenRouter privacy settings ↗
+              </button>
+            </article>
+          </div>
+          <div class="inline-note">
+            Independent community project. Not affiliated with, endorsed by, or
+            connected to the official HeyClicky service. Agents can make
+            mistakes; review every approval.
+          </div>
+        </section>
+        <section id="view-settings" class="view content-view" hidden>
+          <div class="section-heading compact">
+            <span class="eyebrow">MAKE YOURSELF AT HOME</span>
+            <h1>Your buddy, your way.</h1>
+            <p>
+              One API key. Your choice of model. No subscription to this app.
+            </p>
+          </div>
+          <form id="settings-form">
+            <div class="settings-card">
+              <div class="settings-card-title">
+                <span class="card-icon lavender">✦</span>
+                <div>
+                  <h3>AI connection</h3>
+                  <p>Use a vision and tool-capable OpenRouter model.</p>
+                </div>
+                <span id="key-status" class="small-badge">Not connected</span>
+              </div>
+              <label for="api-key">OpenRouter API key</label>
+              <div class="input-with-button">
+                <input
+                  type="password"
+                  id="api-key"
+                  placeholder="sk-or-v1-…"
+                  autocomplete="off"
+                  spellcheck="false"
+                /><button type="button" class="secondary" id="get-key">
+                  Get a key ↗
+                </button>
+              </div>
+              <small id="key-help"
+                >Encrypted on this PC. Never sent to this project's
+                servers.</small
+              ><label for="model">Model ID</label
+              ><input
+                id="model"
+                placeholder="openai/gpt-4.1-mini"
+                required
+              /><small
+                >Example: openai/gpt-4.1-mini. Model usage is billed by
+                OpenRouter.</small
+              >
+              <div class="settings-test">
+                <button type="button" id="test-key" class="secondary">
+                  ↗ Test saved connection</button
+                ><span id="test-result" role="status"></span>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-title">
+                <span class="card-icon peach">♩</span>
+                <div>
+                  <h3>Voice & personality</h3>
+                  <p>Windows local input or optional online Edge speech.</p>
+                </div>
+              </div>
+              <div class="speech-input-settings">
+                <label for="voice-provider">Voice input provider</label>
+                <select id="voice-provider">
+                  <option value="windows">Windows speech · local</option>
+                  <option value="edge">
+                    Microsoft Edge · online, experimental
+                  </option>
+                </select>
                 <div id="edge-options" class="edge-options" hidden>
                   <strong>A real Edge helper—not hidden Electron speech</strong>
-                  <p>First setup opens a visible dedicated Edge window for microphone permission and a test. You can then explicitly enable minimized background launches. Audio may go to Microsoft’s online speech service. Permission, language support and background operation are not guaranteed. No separate speech API key is required.</p>
-                  <label for="edge-window-mode">Background window behavior</label>
-                  <select id="edge-window-mode"><option value="minimized">Minimized · recommended</option><option value="hidden">Hidden window · experimental</option></select>
-                  <small>Hidden removes the dedicated helper window from the desktop/taskbar after connection, not the Edge process or Windows microphone indicators. It may briefly appear at launch or stop recognizing when hidden. Save this preference, then click Move helper to background. Restore it any time with Open visible Edge setup.</small>
-                  <label for="edge-language">Edge input language</label><input id="edge-language" value="en-US" maxlength="40" placeholder="en-US or bn-BD">
-                  <small>Edge languages do not require a Windows recognition pack. Availability depends on Edge and its online service.</small>
-                  <label class="setting-switch"><span><strong>Fall back to Windows speech</strong><small>If Edge fails before finalization, switch locally and ask you to repeat. No replay of released turns or typed dictation.</small></span><input id="edge-fallback" type="checkbox" checked></label>
-                  <div class="button-row"><button id="edge-setup" class="outline-button" type="button">Open visible Edge setup ↗</button><button id="edge-close" class="quiet-button" type="button">Close helper</button></div>
-                  <button id="edge-background" type="button" class="outline-button">Move helper to background</button>
-                  <p id="edge-status" role="status">Helper not connected. Save your provider preference before using the notch microphone.</p>
-                  <button id="edge-disable" type="button" class="quiet-button" hidden>Disable automatic background launches</button>
+                  <p>
+                    First setup opens a visible dedicated Edge window for
+                    microphone permission and a test. You can then explicitly
+                    enable minimized background launches. Audio may go to
+                    Microsoft’s online speech service. Permission, language
+                    support and background operation are not guaranteed. No
+                    separate speech API key is required.
+                  </p>
+                  <label for="edge-window-mode"
+                    >Background window behavior</label
+                  >
+                  <select id="edge-window-mode">
+                    <option value="minimized">Minimized · recommended</option>
+                    <option value="hidden">Hidden window · experimental</option>
+                  </select>
+                  <small
+                    >Hidden removes the dedicated helper window from the
+                    desktop/taskbar after connection, not the Edge process or
+                    Windows microphone indicators. It may briefly appear at
+                    launch or stop recognizing when hidden. Save this
+                    preference, then click Move helper to background. Restore it
+                    any time with Open visible Edge setup.</small
+                  >
+                  <label for="edge-language">Edge input language</label
+                  ><input
+                    id="edge-language"
+                    value="en-US"
+                    maxlength="40"
+                    placeholder="en-US or bn-BD"
+                  />
+                  <small
+                    >Edge languages do not require a Windows recognition pack.
+                    Availability depends on Edge and its online service.</small
+                  >
+                  <label class="setting-switch"
+                    ><span
+                      ><strong>Fall back to Windows speech</strong
+                      ><small
+                        >If Edge fails before finalization, switch locally and
+                        ask you to repeat. No replay of released turns or typed
+                        dictation.</small
+                      ></span
+                    ><input id="edge-fallback" type="checkbox" checked
+                  /></label>
+                  <div class="button-row">
+                    <button
+                      id="edge-setup"
+                      class="outline-button"
+                      type="button"
+                    >
+                      Open visible Edge setup ↗</button
+                    ><button id="edge-close" class="quiet-button" type="button">
+                      Close helper
+                    </button>
+                  </div>
+                  <button
+                    id="edge-background"
+                    type="button"
+                    class="outline-button"
+                  >
+                    Move helper to background
+                  </button>
+                  <p id="edge-status" role="status">
+                    Helper not connected. Save your provider preference before
+                    using the notch microphone.
+                  </p>
+                  <button
+                    id="edge-disable"
+                    type="button"
+                    class="quiet-button"
+                    hidden
+                  >
+                    Disable automatic background launches
+                  </button>
                 </div>
-                <label for="speech-language">Windows input / fallback language</label><div class="input-with-button"><select id="speech-language"><option value="">Automatic · installed Windows language</option></select><button type="button" id="speech-diagnostics" class="secondary">Find languages</button></div><small>Speech recognition packs are separate from speaking voices. Save the selected language before testing.</small><div class="settings-test"><button type="button" id="voice-test" class="secondary">♩ Test microphone</button><button type="button" id="voice-test-stop" class="secondary" hidden>■ Stop test / task</button></div><p id="microphone-result" role="status">Test your saved provider without an AI key. Edge input uses online recognition. No screen capture or typing.</p><div class="audio-settings-links"><button type="button" data-audio-settings="microphone" class="text-button">Microphone permissions ↗</button><button type="button" data-audio-settings="sound" class="text-button">Default input device ↗</button><button type="button" data-audio-settings="speech" class="text-button">Windows speech settings ↗</button></div></div><div class="form-grid"><div><label for="voice-select">Voice</label><select id="voice-select"><option value="">Windows default</option></select><button type="button" id="load-voices" class="text-button">Refresh installed voices</button></div><div><label for="rate">Speaking speed <output id="rate-value">0</output></label><input type="range" min="-5" max="5" step="1" value="0" id="rate"><small>Slower ← → Faster</small></div></div><label class="switch-row"><span><strong>Speak answers aloud</strong><small>Your buddy talks back using a Windows voice.</small></span><input type="checkbox" id="speak" checked></label><label class="switch-row"><span><strong>Top-of-screen notch</strong><small>Expandable quick voice controls on your primary display. Does not take typing focus.</small></span><input type="checkbox" id="notch-enabled" checked></label><label class="switch-row"><span><strong>Cursor buddy</strong><small>A little companion that follows your mouse.</small></span><input type="checkbox" id="buddy" checked></label></div>
-      <div class="settings-card"><div class="settings-card-title"><span class="card-icon mint">◇</span><div><h3>Control & safety</h3><p>Keep your desktop in your hands.</p></div></div><label class="switch-row"><span><strong>Ask before desktop actions</strong><small>Approve each click, keystroke and typed message. Recommended on.</small></span><input type="checkbox" id="ask-before" checked></label><p class="safety-note" id="safety-note" hidden>Without this, agents may click and type without asking. Commands, file access, and network actions still require approval.</p><label class="switch-row"><span><strong>Launch when Windows starts</strong><small>Your buddy will be ready when you are.</small></span><input type="checkbox" id="start-windows"></label><div id="hotkey-fields" class="hotkey-fields"></div></div>
-      <div class="settings-footer"><span id="save-result" role="status"></span><button type="submit" class="primary">Save settings <span>✓</span></button></div>
-      <div class="danger-zone"><div><strong>A clean slate</strong><p>Delete your key, settings and conversation, then quit.</p></div><button type="button" id="delete-data" class="danger-button">Delete local data</button></div>
-    </form>
-  </section>
-</main>
-</div>
-<script src="demo.js"></script><script src="app.js"></script>
-</body>
+                <label for="speech-language"
+                  >Windows input / fallback language</label
+                >
+                <div class="input-with-button">
+                  <select id="speech-language">
+                    <option value="">
+                      Automatic · installed Windows language
+                    </option></select
+                  ><button
+                    type="button"
+                    id="speech-diagnostics"
+                    class="secondary"
+                  >
+                    Find languages
+                  </button>
+                </div>
+                <small
+                  >Speech recognition packs are separate from speaking voices.
+                  Save the selected language before testing.</small
+                >
+                <div class="settings-test">
+                  <button type="button" id="voice-test" class="secondary">
+                    ♩ Test microphone</button
+                  ><button
+                    type="button"
+                    id="voice-test-stop"
+                    class="secondary"
+                    hidden
+                  >
+                    ■ Stop test / task
+                  </button>
+                </div>
+                <p id="microphone-result" role="status">
+                  Test your saved provider without an AI key. Edge input uses
+                  online recognition. No screen capture or typing.
+                </p>
+                <div class="audio-settings-links">
+                  <button
+                    type="button"
+                    data-audio-settings="microphone"
+                    class="text-button"
+                  >
+                    Microphone permissions ↗</button
+                  ><button
+                    type="button"
+                    data-audio-settings="sound"
+                    class="text-button"
+                  >
+                    Default input device ↗</button
+                  ><button
+                    type="button"
+                    data-audio-settings="speech"
+                    class="text-button"
+                  >
+                    Windows speech settings ↗
+                  </button>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div>
+                  <label for="voice-select">Voice</label
+                  ><select id="voice-select">
+                    <option value="">Windows default</option></select
+                  ><button type="button" id="load-voices" class="text-button">
+                    Refresh installed voices
+                  </button>
+                </div>
+                <div>
+                  <label for="rate"
+                    >Speaking speed <output id="rate-value">0</output></label
+                  ><input
+                    type="range"
+                    min="-5"
+                    max="5"
+                    step="1"
+                    value="0"
+                    id="rate"
+                  /><small>Slower ← → Faster</small>
+                </div>
+              </div>
+              <label class="switch-row"
+                ><span
+                  ><strong>Speak answers aloud</strong
+                  ><small
+                    >Your buddy talks back using a Windows voice.</small
+                  ></span
+                ><input type="checkbox" id="speak" checked /></label
+              ><label class="switch-row"
+                ><span
+                  ><strong>Desktop visual answers</strong
+                  ><small
+                    >Transparent, pass-through graphics. Interact explicitly,
+                    Escape returns clicks.</small
+                  ></span
+                ><input type="checkbox" id="desktop-visuals" checked /></label
+              ><label class="switch-row"
+                ><span
+                  ><strong>Top-of-screen notch</strong
+                  ><small
+                    >Expandable quick voice controls on your primary display.
+                    Does not take typing focus.</small
+                  ></span
+                ><input type="checkbox" id="notch-enabled" checked /></label
+              ><label class="switch-row"
+                ><span
+                  ><strong>Cursor buddy</strong
+                  ><small
+                    >A little companion that follows your mouse.</small
+                  ></span
+                ><input type="checkbox" id="buddy" checked
+              /></label>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-title">
+                <span class="card-icon mint">◇</span>
+                <div>
+                  <h3>Control & safety</h3>
+                  <p>Keep your desktop in your hands.</p>
+                </div>
+              </div>
+              <label class="switch-row"
+                ><span
+                  ><strong>Ask before desktop actions</strong
+                  ><small
+                    >Approve each click, keystroke and typed message.
+                    Recommended on.</small
+                  ></span
+                ><input type="checkbox" id="ask-before" checked
+              /></label>
+              <p class="safety-note" id="safety-note" hidden>
+                Without this, agents may click and type without asking.
+                Commands, file access, and network actions still require
+                approval.
+              </p>
+              <label class="switch-row"
+                ><span
+                  ><strong>Launch when Windows starts</strong
+                  ><small>Your buddy will be ready when you are.</small></span
+                ><input type="checkbox" id="start-windows"
+              /></label>
+              <div id="hotkey-fields" class="hotkey-fields"></div>
+            </div>
+            <div class="settings-footer">
+              <span id="save-result" role="status"></span
+              ><button type="submit" class="primary">
+                Save settings <span>✓</span>
+              </button>
+            </div>
+            <div class="danger-zone">
+              <div>
+                <strong>A clean slate</strong>
+                <p>Delete your key, settings and conversation, then quit.</p>
+              </div>
+              <button type="button" id="delete-data" class="danger-button">
+                Delete local data
+              </button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+    <script src="demo.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>

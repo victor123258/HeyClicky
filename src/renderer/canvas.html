@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    />
+    <link rel="stylesheet" href="canvas.css" />
+    <title>HeyClicky desktop visual canvas</title>
+  </head>
+  <body>
+    <header id="toolbar">
+      <div>
+        <span class="eyebrow">DESKTOP VISUAL</span
+        ><strong id="title">Visual answer</strong>
+      </div>
+      <span id="input-mode">Pass-through · use Interact in the notch</span
+      ><button id="passthrough">Return clicks to Windows · Esc</button
+      ><button id="reset">Reset view</button
+      ><button id="dismiss" aria-label="Dismiss desktop visual">Close ×</button>
+    </header>
+    <main id="stage" aria-label="Transparent visual answer"></main>
+    <footer id="caption-panel">
+      <div id="steps">
+        <button id="previous">←</button
+        ><select id="step-select" aria-label="Teaching step"></select
+        ><button id="next">→</button><button id="narrate">Read step</button
+        ><button id="tour">Play guided tour</button
+        ><button id="animate">Play motion</button
+        ><button id="stop-audio">Stop narration</button>
+      </div>
+      <p id="caption"></p>
+      <p id="hint">
+        Drag to orbit · scroll to zoom · right-drag to pan. No opaque canvas
+        background. These are explanatory graphics, not simulations.
+      </p>
+      <p id="error" role="status" hidden></p>
+    </footer>
+    <script src="visual-bundle.js"></script>
+    <script src="canvas.js"></script>
+  </body>
+</html>
