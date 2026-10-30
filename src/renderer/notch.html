@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'"><link rel="stylesheet" href="notch.css"><title>HeyClicky notch</title></head>
+<body>
+<section id="notch" aria-label="HeyClicky quick controls">
+  <header><button id="expand" aria-expanded="false" title="Expand quick controls"><span class="mini-buddy">↖</span><span id="status">Hey, I'm here</span><span class="signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button><button id="quick-talk" title="Start voice input" aria-label="Start voice input">♩</button></header>
+  <div id="details" hidden>
+    <div class="detail-heading"><span id="mode-label">YOUR DESKTOP PLUS ONE</span><button id="collapse" title="Collapse" aria-label="Collapse notch">⌃</button></div>
+    <p id="preview" role="status" aria-live="polite">Ask about your screen, or let me lend a hand.</p>
+    <div class="actions"><button data-action="talk"><span>♩</span>Talk</button><button data-action="agent"><span>✦</span>Agent</button><button data-action="dictate"><span>⌨</span>Dictate</button><button id="stop" data-action="stop" hidden><span>■</span>Stop</button><button data-action="panel" title="Open conversation"><span>↗</span>Chat</button></div>
+    <footer><span id="hint">Speak after “Listening” appears</span><button data-action="settings" title="Open settings">Settings ↗</button></footer>
+  </div>
+</section><script src="notch.js"></script>
+</body></html>

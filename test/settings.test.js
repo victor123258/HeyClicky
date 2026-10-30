@@ -37,3 +37,8 @@ test('corrupt settings give recoverable warning',()=>{
   try {fs.writeFileSync(path.join(dir,'settings.json'),'{bad');const s=new Settings(dir,{});assert.ok(s.public().loadError);assert.equal(s.key,'');}
   finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+test('legacy preferences gain notch and automatic recognition-language defaults',()=>{
+  const value=validate({model:'openai/gpt-4.1'});assert.equal(value.notch,true);assert.equal(value.speechLanguage,'');
+  assert.equal(validate({speechLanguage:'en-US',notch:false}).speechLanguage,'en-US');
+  assert.throws(()=>validate({speechLanguage:'en; bad-command'}));assert.throws(()=>validate({notch:'yes'}));
+});

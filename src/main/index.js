@@ -6,19 +6,32 @@ const { Settings } = require('./lib/settings');
 const { complete } = require('./lib/llm');
 const { runAgent } = require('./lib/agent');
 const { Speech } = require('./speech');
+const { Notch } = require('./notch');
 const native = require('./native');
-let panel, tray, settings, speech, controller, approval, quitting = false, state = 'idle', listeningMode;
+const smokeMode = process.argv.includes('--smoke-test');
+if (smokeMode) {
+  app.disableHardwareAcceleration();
+  if (!process.env.HEYCLICKY_TEST_USER_DATA) throw Error('Smoke tests require isolated user data. Use scripts/desktop-smoke.js.');
+  app.setPath('userData', process.env.HEYCLICKY_TEST_USER_DATA);
+}
+
+let panel, tray, settings, speech, notch, controller, approval, quitting = false, state = 'idle', listeningMode;
 let overlays = [], history = [], activeDisplay, lastAnnotations = [];
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-function emit(type, data) { if (panel && !panel.isDestroyed()) panel.webContents.send('event', { type, data }); }
-function setState(next) { state = next; emit('state', next); broadcast('state', next); }
+function emit(type, data) {
+  if (panel && !panel.isDestroyed()) panel.webContents.send('event', { type, data });
+  if (type === 'message') notch?.message(data.text, data.role);
+  if (type === 'voice-heard') notch?.message(`Heard: ${data}`, 'transcript');
+  if (type === 'error') notch?.message(data, 'error');
+}
+function setState(next) { state = next; emit('state', next); broadcast('state', next); notch?.setState(next); }
 function broadcast(type, data) { for (const win of overlays) if (!win.isDestroyed()) win.webContents.send('overlay', { type, data }); }
 function showPanel() { panel.show(); panel.focus(); }
 function error(error) { emit('error', error.message || String(error)); showPanel(); }
 function stop() {
   controller?.abort(); controller = null; speech?.stop(); listeningMode = null;
   if (approval) { approval.resolve(false); approval = null; emit('approval', null); }
-  lastAnnotations = []; broadcast('clear'); setState('idle');
+  lastAnnotations = []; broadcast('clear'); notch?.clear(); setState('idle');
 }
 function registerHotkeys(value) {
   globalShortcut.unregisterAll();
@@ -47,7 +60,7 @@ async function capture(signal) {
   if (!display) throw Error('Selected display disconnected. Start a new request.');
   const wasVisible = panel.isVisible();
   // Hide our own UI and drawings so they do not obscure the application.
-  panel.hide(); for (const win of overlays) win.hide();
+  panel.hide(); for (const win of overlays) win.hide(); notch?.suspend(true);
   try {
     await delay(180); signal?.throwIfAborted();
     const scale = Math.min(1, 1600 / display.size.width);
@@ -59,6 +72,7 @@ async function capture(signal) {
   } finally {
     for (const win of overlays) if (!win.isDestroyed()) win.showInactive();
     if (wasVisible && !panel.isDestroyed()) panel.showInactive();
+    notch?.suspend(false);
   }
 }
 function approve(action, signal) {
@@ -76,6 +90,13 @@ function approve(action, signal) {
     if (signal.aborted) finish(false);
   });
 }
+async function desktopInput(request, signal) {
+  // Return focus to the underlying application. Hide the notch as well: a target
+  // at the top center must not accidentally click one of our own quick controls.
+  panel.hide(); notch?.suspend(true);
+  try { await delay(350); signal.throwIfAborted(); return await native.input(request, signal); }
+  finally { notch?.suspend(false); }
+}
 async function execute(name, args, signal) {
   signal.throwIfAborted(); setState('working');
   if (name === 'screenshot') return capture(signal);
@@ -84,16 +105,15 @@ async function execute(name, args, signal) {
     lastAnnotations.push({ ...args, bounds: activeDisplay.bounds });
     lastAnnotations = lastAnnotations.slice(-8); broadcast('draw', lastAnnotations); return 'Annotation displayed.';
   }
-  // Return focus to the underlying application before input. Approvals always show exact arguments.
-  if (['click', 'type_text', 'press_keys'].includes(name)) { panel.hide(); await delay(350); signal.throwIfAborted(); }
+
   if (name === 'click') {
     if (!screen.getAllDisplays().some(d => d.id === activeDisplay.id)) throw Error('Display disconnected.');
     const b = activeDisplay.bounds;
     const point = screen.dipToScreenPoint({ x: Math.round(b.x + args.x / 1000 * (b.width - 1)), y: Math.round(b.y + args.y / 1000 * (b.height - 1)) });
-    await native.input({ action: 'click', ...point, button: args.button }, signal); return 'Clicked. Take a new screenshot to verify.';
+    await desktopInput({ action: 'click', ...point, button: args.button }, signal); return 'Clicked. Take a new screenshot to verify.';
   }
-  if (name === 'type_text') { await native.input({ action: 'type', text: args.text }, signal); return 'Text sent to focused window. Verify with a screenshot.'; }
-  if (name === 'press_keys') { await native.input({ action: 'keys', keys: args.keys }, signal); return 'Keys sent. Verify result.'; }
+  if (name === 'type_text') { await desktopInput({ action: 'type', text: args.text }, signal); return 'Text sent to focused window. Verify with a screenshot.'; }
+  if (name === 'press_keys') { await desktopInput({ action: 'keys', keys: args.keys }, signal); return 'Keys sent. Verify result.'; }
   if (name === 'powershell') return await native.powershell(args.command, signal) || 'Command completed.';
   if (name === 'read_file') {
     const handle = await fs.open(args.path, 'r');
@@ -144,15 +164,26 @@ async function ask(text, mode = 'talk', display) {
 }
 function listen(mode) {
   if (controller || listeningMode) { stop(); return; }
-  if (!settings.key) { showPanel(); emit('settings-open'); error(Error('Add your API key before using voice chat.')); return; }
+  if (mode !== 'test' && !settings.key) { showPanel(); emit('settings-open'); error(Error('Add your API key before using voice chat. You can test the microphone in Settings without a key.')); return; }
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  listeningMode = mode; setState('starting');
+  const turn = Symbol('voice-turn');
+  let transcript = '';
+  listeningMode = turn; notch?.clear(); setState('starting');
   try {
     speech.listen(mode, text => {
-      // Wait for helper closure before starting synthesis, preventing microphone feedback.
-      listeningMode = null; speech.stop();
-      ask(text, mode, display).catch(error);
-    }, () => setState('listening'), error, () => { if (listeningMode === mode) { listeningMode = null; setState('idle'); } });
+      transcript = text;
+      emit('voice-heard', text);
+    }, event => {
+      setState('listening');
+      emit('voice-ready', { language: event.language, test: mode === 'test' });
+    }, error, result => {
+      if (listeningMode !== turn) return;
+      listeningMode = null;
+      // Only submit after clean helper closure: the microphone has been disposed.
+      // The previous implementation killed a still-running listener inside onText.
+      if (result.ok && transcript && mode !== 'test') ask(transcript, mode, display).catch(e => { if (!controller) setState('idle'); error(e); });
+      else { setState('idle'); if (mode === 'test' && result.ok) emit('voice-test-result', transcript); }
+    }, settings.value.speechLanguage);
   } catch (e) { listeningMode = null; setState('idle'); error(e); }
 }
 function toggleDictation() {
@@ -164,7 +195,7 @@ function toggleDictation() {
     speech.listen('dictate', text => {
       emit('dictation', text);
       queue = queue.then(() => { current.signal.throwIfAborted(); return native.input({ action: 'type', text: text + ' ' }, current.signal); }).catch(e => { if (!current.signal.aborted) { stop(); error(e); } });
-    }, () => setState('dictating'), e => { stop(); error(e); }, () => { if (controller === current) stop(); });
+    }, event => { setState('dictating'); emit('voice-ready', { language: event.language }); }, e => { stop(); error(e); }, () => { if (controller === current) stop(); }, settings.value.speechLanguage);
   } catch (e) { stop(); error(e); }
 }
 function trusted(event) {
@@ -172,6 +203,21 @@ function trusted(event) {
 }
 function handle(channel, fn) { ipcMain.handle(channel, async (event, ...args) => { trusted(event); try { return { ok: true, data: await fn(...args) }; } catch (e) { return { ok: false, error: e.message }; } }); }
 function installIPC() {
+  const trustedNotch = event => {
+    if (!notch || event.sender !== notch.window.webContents || event.senderFrame !== notch.window.webContents.mainFrame) throw Error('Untrusted notch sender.');
+  };
+  ipcMain.handle('notch:get', event => { trustedNotch(event); return notch.snapshot(); });
+  ipcMain.handle('notch:expand', (event, value) => { trustedNotch(event); if (typeof value !== 'boolean') throw Error('Invalid expansion state.'); notch.expand(value); });
+  ipcMain.handle('notch:action', (event, name) => {
+    trustedNotch(event);
+    if (name === 'stop') { stop(); return; }
+    if (name === 'panel') { showPanel(); return; }
+    if (name === 'settings') { showPanel(); emit('settings-open'); return; }
+    if (controller || listeningMode) return { error: 'Stop the current task first.' };
+    if (name === 'talk' || name === 'agent') listen(name);
+    else if (name === 'dictate') toggleDictation();
+    else return { error: 'Unknown notch action.' };
+  });
   handle('get-settings', () => ({ ...settings.public(), platform: process.platform, version: app.getVersion(), state, history, packaged: app.isPackaged }));
   handle('save-settings', (value, key) => {
     if (controller || listeningMode) throw Error('Stop the current task before changing settings.');
@@ -180,11 +226,18 @@ function installIPC() {
       registerHotkeys(next);
       const saved = settings.save(next, key);
       app.setLoginItemSettings({ openAtLogin: next.startWithWindows, path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath('exe') });
-      broadcast('buddy', next.buddy); return saved;
+      broadcast('buddy', next.buddy); notch?.setEnabled(next.notch); return saved;
     } catch (e) { registerHotkeys(previous); throw e; }
   });
   handle('test-key', async () => { await complete({ key: settings.key, model: settings.value.model, messages: [{ role: 'user', content: 'Reply with OK.' }] }); return 'Connected. Text request succeeded; screen mode also needs image and tool support.'; });
   handle('voices', () => speech.voices());
+  handle('speech-diagnostics', () => speech.diagnostics());
+  handle('voice-test', () => { if (controller || listeningMode) throw Error('Stop the current task before testing the microphone.'); listen('test'); });
+  handle('windows-audio-settings', name => {
+    const links = { microphone: 'ms-settings:privacy-microphone', sound: 'ms-settings:sound', speech: 'ms-settings:speech' };
+    if (!links[name]) throw Error('Unknown Windows settings page.');
+    return shell.openExternal(links[name]);
+  });
   handle('ask', (text, mode) => { if (controller || listeningMode) throw Error('A task is already running.'); ask(text, mode).catch(e => { if (!controller) setState('idle'); error(e); }); });
   handle('listen', mode => { if (!['talk', 'agent'].includes(mode)) throw Error('Invalid mode.'); listen(mode); });
   handle('dictate', toggleDictation);
@@ -203,6 +256,28 @@ function installIPC() {
     if (!links[name]) throw Error('Unknown link.'); return shell.openExternal(links[name]);
   });
 }
+async function runDesktopSmoke() {
+  try {
+    const loaded = win => win.webContents.isLoading() ? new Promise((resolve, reject) => {
+      win.webContents.once('did-finish-load', resolve);
+      win.webContents.once('did-fail-load', (_event, code, description) => reject(Error(`${code}: ${description}`)));
+    }) : Promise.resolve();
+    await Promise.all([panel, notch.window, ...overlays].map(loaded));
+    const panelReady = await panel.webContents.executeJavaScript(`(async () => {
+      const response = await window.clicky.call('get-settings');
+      return response.ok && response.data.notch === true && Boolean(document.querySelector('#voice-test'));
+    })()`);
+    if (!panelReady) throw Error('Panel settings or microphone UI did not initialize.');
+    await notch.window.webContents.executeJavaScript('window.notch.expand(true)');
+    const expanded = await notch.window.webContents.executeJavaScript('window.notch.get()');
+    if (!expanded.expanded || notch.window.getBounds().height !== 216) throw Error('Notch did not expand through its trusted bridge.');
+    await notch.window.webContents.executeJavaScript('window.notch.expand(false)');
+    if (notch.window.getBounds().height !== 44) throw Error('Notch did not shrink its native input area.');
+    const isolated = await notch.window.webContents.executeJavaScript('typeof window.clicky === "undefined" && typeof require === "undefined"');
+    if (!isolated) throw Error('Notch renderer privileges are not isolated.');
+    console.log('DESKTOP_SMOKE_OK'); quitting = true; app.quit();
+  } catch (e) { console.error(e); app.exit(1); }
+}
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => panel && showPanel());
@@ -215,17 +290,21 @@ else {
     panel.webContents.on('will-navigate', e => e.preventDefault());
     panel.on('close', e => { if (!quitting) { e.preventDefault(); panel.hide(); } });
     installIPC(); panel.loadFile(path.join(__dirname, '../renderer/index.html'));
-    createOverlays(); screen.on('display-added', createOverlays); screen.on('display-removed', createOverlays); screen.on('display-metrics-changed', createOverlays);
+    createOverlays();
+    notch = new Notch({ BrowserWindow, screen, enabled: settings.value.notch, state });
+    const displayChanged = () => { createOverlays(); notch?.render(); };
+    screen.on('display-added', displayChanged); screen.on('display-removed', displayChanged); screen.on('display-metrics-changed', displayChanged);
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, '../../assets/icon.png')).resize({ width: 32, height: 32 }));
     tray.setToolTip('HeyClicky Community — your desktop buddy');
-    tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open HeyClicky', click: showPanel }, { label: 'Talk', click: () => listen('talk') }, { label: 'Dictate / stop', click: toggleDictation }, { label: 'Stop everything', click: stop }, { type: 'separator' }, { label: 'Quit', click: () => { quitting = true; app.quit(); } }]));
+    tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open HeyClicky', click: showPanel }, { label: 'Talk', click: () => listen('talk') }, { label: 'Expand notch', click: () => { notch.setEnabled(true); notch.expand(true); } }, { label: 'Dictate / stop', click: toggleDictation }, { label: 'Stop everything', click: stop }, { type: 'separator' }, { label: 'Quit', click: () => { quitting = true; app.quit(); } }]));
     tray.on('double-click', showPanel);
     panel.webContents.on('did-finish-load', () => {
       if (!settings.key) emit('settings-open');
       if (process.platform !== 'win32') emit('error', 'Desktop automation and voice require Windows. This platform is for UI development only.');
-      try { registerHotkeys(settings.value); } catch (e) { error(e); }
+      if (!smokeMode) { try { registerHotkeys(settings.value); } catch (e) { error(e); } }
     });
     setInterval(() => broadcast('cursor', screen.getCursorScreenPoint()), 45).unref();
+    if (smokeMode) runDesktopSmoke();
   }).catch(e => { dialog.showErrorBox('HeyClicky could not start', e.message); app.quit(); });
   app.on('before-quit', () => { quitting = true; stop(); globalShortcut.unregisterAll(); });
   app.on('window-all-closed', () => {});

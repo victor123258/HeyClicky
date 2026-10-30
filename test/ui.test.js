@@ -40,3 +40,33 @@ test('agent card changes mode; context toggle persists',async()=>{
  const checkbox=d.querySelector('#screen-context');checkbox.checked=false;checkbox.dispatchEvent(new dom.window.Event('change'));await wait();assert.match(d.querySelector('#context-hint').textContent,/Text only/);
  }finally{dom.window.close();}
 });
+test('notch UI only exposes quick actions, escapes response text and stops busy tasks',async()=>{
+ const calls=[];let listener;
+ const dom=new JSDOM(fs.readFileSync(path.join(root,'notch.html'),'utf8'),{runScripts:'outside-only',url:'http://preview/notch.html'});
+ try {
+ dom.window.notch={get:async()=>({state:'idle',expanded:false}),onEvent:fn=>listener=fn,action:async name=>calls.push(name),expand:async value=>calls.push(value)};
+ dom.window.eval(fs.readFileSync(path.join(root,'notch.js'),'utf8'));await wait();const d=dom.window.document;
+ assert.equal(d.querySelector('#details').hidden,true);d.querySelector('#expand').click();await wait();assert.equal(calls.at(-1),true);
+ listener({state:'listening',expanded:true,preview:'<img onerror=bad()>',kind:'transcript'});
+ assert.equal(d.querySelector('#details').hidden,false);assert.equal(d.querySelector('#preview img'),null);assert.equal(d.querySelector('[data-action="agent"]').disabled,true);
+ d.querySelector('#quick-talk').click();await wait();assert.equal(calls.at(-1),'stop');
+ listener({state:'idle',expanded:true});d.querySelector('[data-action="talk"]').click();await wait();assert.equal(calls.at(-1),'talk');
+ }finally{dom.window.close();}
+});
+test('microphone test renders recognized text locally, with no AI call',async()=>{
+ let listener;const calls=[];
+ const defaults=require('../src/main/lib/settings').validate({});
+ const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{runScripts:'outside-only',url:'http://preview/'});
+ try {
+ dom.window.clicky={onEvent:fn=>listener=fn,call:async(name,...args)=>{
+ calls.push(name);
+ if(name==='get-settings')return {ok:true,data:{...defaults,hasKey:false,state:'idle'}};
+ if(name==='voice-test') {listener({type:'state',data:'listening'});listener({type:'voice-ready',data:{language:'en-US',test:true}});listener({type:'voice-heard',data:'Testing my microphone'});listener({type:'state',data:'idle'});listener({type:'voice-test-result',data:'Testing my microphone'});}
+ if(name==='speech-diagnostics')return {ok:true,data:{languages:[{id:'en-US',name:'English'}]}};
+ return {ok:true};
+ }};
+ dom.window.eval(fs.readFileSync(path.join(root,'app.js'),'utf8'));await wait();const d=dom.window.document;
+ d.querySelector('#voice-test').click();await wait();assert.match(d.querySelector('#microphone-result').textContent,/complete.*Testing my microphone/);assert.equal(calls.includes('ask'),false);assert.equal(d.querySelector('#voice-test').disabled,false);
+ d.querySelector('#speech-diagnostics').click();await wait();assert.equal(d.querySelector('#speech-language').options.length,2);
+ }finally{dom.window.close();}
+});
