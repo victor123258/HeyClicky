@@ -44,7 +44,7 @@ async function complete({
               provider: { require_parameters: true },
             }
           : {}),
-        max_tokens: 2400,
+        max_tokens: 8192,
       }),
     },
   );

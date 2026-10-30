@@ -106,6 +106,17 @@
         </div>
         <p id="preview">A little help, right where you are.</p>
         <div id="peek-jobs"></div>
+        <div class="canvas-controls" data-canvas-controls hidden>
+          <span data-canvas-title></span>
+          <div>
+            <button data-canvas="interact">Interact</button
+            ><button data-canvas="passthrough">Return clicks</button
+            ><button data-canvas="tour">Read tour</button
+            ><button data-canvas="stop-audio">Stop audio</button
+            ><button data-canvas="dismiss">Dismiss</button>
+          </div>
+          <small data-canvas-status></small>
+        </div>
         <button id="open-home" class="peek-open">
           Open your workspace <svg><use href="#i-arrow" /></svg>
         </button>
@@ -115,6 +126,17 @@
         </div>
       </section>
       <div id="workspace" hidden>
+        <div class="canvas-controls" data-canvas-controls hidden>
+          <span data-canvas-title></span>
+          <div>
+            <button data-canvas="interact">Interact</button
+            ><button data-canvas="passthrough">Return clicks</button
+            ><button data-canvas="tour">Read tour</button
+            ><button data-canvas="stop-audio">Stop audio</button
+            ><button data-canvas="dismiss">Dismiss</button>
+          </div>
+          <small data-canvas-status></small>
+        </div>
         <nav class="tabs" aria-label="Notch navigation">
           <div>
             <button data-route="home" class="active">
@@ -235,6 +257,8 @@
                   id="visual-select"
                   aria-label="Choose visual answer"
                 ></select
+                ><button id="visual-desktop" type="button">
+                  Show on desktop</button
                 ><button id="visual-reset" type="button">Reset view</button>
               </div>
               <div id="visual-canvas"></div>
@@ -477,8 +501,29 @@
                   ><span
                     ><strong>Floating cursor buddy</strong
                     ><small>A companion that points the way.</small></span
-                  ><input id="buddy" type="checkbox" /></label
+                  ><input id="buddy" type="checkbox"
+                /></label>
+                <label class="setting-switch"
+                  ><span
+                    ><strong>Automatic visual explanations</strong
+                    ><small
+                      >With Speak answers on, narrate new visual steps and move
+                      parts hands-free. Pause with Stop audio.</small
+                    ></span
+                  ><input
+                    id="auto-explain-visuals"
+                    type="checkbox"
+                    checked /></label
                 ><label class="setting-switch"
+                  ><span
+                    ><strong>Desktop visual answers</strong
+                    ><small
+                      >Transparent, click-through graphics. Enable interaction
+                      explicitly; Escape returns clicks.</small
+                    ></span
+                  ><input id="desktop-visuals" type="checkbox"
+                /></label>
+                <label class="setting-switch"
                   ><span
                     ><strong>Notch interface</strong
                     ><small>Off opens the fallback desktop panel.</small></span
@@ -631,6 +676,7 @@
       ><button data-preview="peek">Quick peek</button
       ><button data-preview="expanded">Full workspace</button
       ><button id="demo-tasks">Load sample tasks</button
+      ><a href="canvas.html">Desktop canvas preview ↗</a
       ><button id="demo-visual">Try 3D preview</button
       ><button id="demo-chart">Try 2D preview</button
       ><a href="index.html">Legacy panel ↗</a>

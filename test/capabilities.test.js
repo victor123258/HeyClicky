@@ -147,7 +147,7 @@ test("Visual scenes are bounded structured data: no scripts, executable assets, 
     { type: "script" },
     { size: 500 },
     { color: "url(https://evil)" },
-    { x: 11 },
+    { x: 21 },
   ])
     assert.throws(() =>
       validateVisual(
@@ -159,7 +159,7 @@ test("Visual scenes are bounded structured data: no scripts, executable assets, 
     );
   assert.throws(() =>
     validateVisual(
-      JSON.stringify({ ...scene, objects: Array(25).fill(scene.objects[0]) }),
+      JSON.stringify({ ...scene, objects: Array(41).fill(scene.objects[0]) }),
     ),
   );
   assert.throws(() =>

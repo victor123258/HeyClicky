@@ -1,0 +1,123 @@
+// Explicit standalone preview only, not an AI response or hardware assembly instructions.
+window.connectorExample = {
+  id: "connector-preview",
+  spec: {
+    kind: "scene3d",
+    title: "Connector motion — generic teaching preview",
+    caption:
+      "Generic conceptual connector, NOT a verified Raspberry Pi or camera model. Connector style, pin count, latch direction and ribbon orientation vary by board/camera revision; check manufacturer documentation before touching hardware.",
+    objects: [
+      {
+        id: "board",
+        type: "box",
+        label: "",
+        color: "#36745c",
+        x: 0,
+        y: -0.3,
+        z: 0,
+        size: 1,
+        scale: [6, 0.3, 4],
+      },
+      {
+        id: "socket",
+        type: "box",
+        label: "",
+        color: "#d9d7c2",
+        x: 0,
+        y: 0,
+        z: 0,
+        size: 1,
+        scale: [2.5, 0.5, 0.6],
+      },
+      {
+        id: "latch",
+        type: "box",
+        label: "",
+        color: "#514c55",
+        x: 0,
+        y: 0.35,
+        z: 0,
+        size: 1,
+        scale: [2.7, 0.15, 0.6],
+      },
+      {
+        id: "ribbon",
+        type: "box",
+        label: "",
+        color: "#b6c8e1",
+        x: 0,
+        y: 0.2,
+        z: 2,
+        size: 1,
+        scale: [2, 0.05, 2],
+      },
+      {
+        id: "contacts",
+        type: "box",
+        label: "",
+        color: "#e6bf71",
+        x: 0,
+        y: 0.24,
+        z: 1.1,
+        size: 1,
+        scale: [1.8, 0.01, 0.3],
+      },
+      {
+        id: "label-latch",
+        type: "label",
+        label: "Latch",
+        color: "#ffffff",
+        x: -2.5,
+        y: 0.5,
+        z: 0,
+        size: 0.2,
+      },
+      {
+        id: "label-ribbon",
+        type: "label",
+        label: "Ribbon cable",
+        color: "#ffffff",
+        x: 2.8,
+        y: 0.5,
+        z: 1.6,
+        size: 0.2,
+      },
+    ],
+    steps: [
+      {
+        title: "1. Identify the parts",
+        narration:
+          "This is a generic connector with a movable latch and a ribbon. It is not verified hardware guidance. Confirm your exact board and camera revision before choosing a cable or orientation.",
+        highlight: ["socket", "latch", "ribbon", "contacts"],
+        durationMs: 0,
+      },
+      {
+        title: "2. Lift the conceptual latch",
+        narration:
+          "The latch lifts in this simplified example. Actual connector mechanisms differ. Do not force a real connector based on this model.",
+        highlight: ["latch", "label-latch"],
+        poses: [{ id: "latch", position: [0, 1, 0], rotation: [-20, 0, 0] }],
+        durationMs: 900,
+      },
+      {
+        title: "3. Slide the ribbon",
+        narration:
+          "The ribbon moves into the socket while the latch stays open. This illustrates relative motion only, not verified contact orientation, pin count or dimensions.",
+        highlight: ["ribbon", "contacts", "label-ribbon"],
+        poses: [
+          { id: "ribbon", position: [0, 0.2, 1] },
+          { id: "contacts", position: [0, 0.24, 0.1] },
+        ],
+        durationMs: 1100,
+      },
+      {
+        title: "4. Close the conceptual latch",
+        narration:
+          "The latch returns to its original position in this illustration. Use the manufacturer instructions for your exact connector before attempting real assembly.",
+        highlight: ["latch", "socket"],
+        poses: [{ id: "latch", position: [0, 0.35, 0], rotation: [0, 0, 0] }],
+        durationMs: 900,
+      },
+    ],
+  },
+};

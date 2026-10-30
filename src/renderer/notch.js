@@ -239,6 +239,31 @@ function renderVisual(force = false) {
   }
 }
 $("#visual-select").onchange = () => renderVisual(true);
+$("#visual-desktop").onclick = task(() =>
+  call("canvas-present", $("#visual-select").value),
+);
+function renderCanvasStatus(data) {
+  for (const group of $$("[data-canvas-controls]")) {
+    group.hidden = !data.id;
+    group.querySelector("[data-canvas-title]").textContent = data.title;
+    group.querySelector("[data-canvas-status]").textContent =
+      data.error ||
+      `${data.visible ? (data.interactive ? "Interacting · Escape returns clicks" : "Pass-through · Windows receives clicks") : "Temporarily hidden"} · ${data.audio === "off" ? "audio off" : data.audio}`;
+    for (const button of group.querySelectorAll("[data-canvas]")) {
+      const action = button.dataset.canvas;
+      button.hidden = action === "stop-audio" && data.audio === "off";
+      button.disabled =
+        (action === "interact" && data.interactive) ||
+        (action === "passthrough" && !data.interactive);
+    }
+  }
+}
+$$("[data-canvas]").forEach(
+  (button) =>
+    (button.onclick = task(() =>
+      call("canvas-command", button.dataset.canvas),
+    )),
+);
 $("#visual-reset").onclick = () => renderVisual(true);
 function renderThread() {
   renderVisual();
@@ -314,6 +339,7 @@ function renderThread() {
 }
 function fillSettings(data) {
   config = data;
+  if (data.canvasStatus) renderCanvasStatus(data.canvasStatus);
   $("#edge-window-mode").value = data.edgeWindowMode || "minimized";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
@@ -339,6 +365,8 @@ function fillSettings(data) {
     captions: "captions",
     buddy: "buddy",
     "notch-enabled": "notch",
+    "desktop-visuals": "desktopVisuals",
+    "auto-explain-visuals": "autoExplainVisuals",
     "start-windows": "startWithWindows",
   }))
     $(`#${id}`).checked = data[key] !== false;
@@ -450,6 +478,7 @@ function appEvent({ type, data }) {
     $("#chat-count").textContent = messages.length;
     if (route === "chat") renderThread();
   }
+  if (type === "canvas-status") renderCanvasStatus(data);
   if (type === "error") {
     notify(data);
     $("#mic-result").textContent = data;
@@ -710,6 +739,8 @@ $("#settings-form").onsubmit = task(async (e) => {
       captions: "captions",
       buddy: "buddy",
       "notch-enabled": "notch",
+      "desktop-visuals": "desktopVisuals",
+      "auto-explain-visuals": "autoExplainVisuals",
       "start-windows": "startWithWindows",
     }))
       next[key] = $(`#${id}`).checked;

@@ -27,7 +27,18 @@ const { Tasks } = require("./lib/tasks");
 const { BackgroundJobs, ApprovalQueue } = require("./lib/background");
 const { searchWeb, text: htmlText } = require("./lib/research");
 const { createDocument } = require("./lib/documents");
-const { validateVisual } = require("./lib/visuals");
+const {
+  validateVisual,
+  applyVisualPatch,
+  visualContext,
+} = require("./lib/visuals");
+const {
+  visualVoiceCommand,
+  runVisualVoiceCommand,
+  speakVisualAnswer,
+  hasFreshVisualGuide,
+} = require("./lib/visual-playback");
+const { DesktopCanvas } = require("./desktop-canvas");
 const { Keys } = require("./keys");
 const { keyGroups } = require("./lib/hold-keys");
 const native = require("./native");
@@ -41,7 +52,10 @@ if (smokeMode) {
   app.setPath("userData", process.env.HEYCLICKY_TEST_USER_DATA);
 }
 
-let backgroundJobs;
+let backgroundJobs,
+  desktopCanvas,
+  afterVisualGuide = null,
+  visualResumeVersion = 0;
 let visualResults = [];
 let edge,
   edgeClosing = false;
@@ -117,6 +131,10 @@ function error(error) {
   }
 }
 function stop(all = true) {
+  visualResumeVersion++;
+  afterVisualGuide = null;
+  if (all) desktopCanvas?.dismiss();
+  else desktopCanvas?.cancelNarration();
   if (all) backgroundJobs?.stopAll();
   controller?.abort();
   controller = null;
@@ -216,6 +234,7 @@ async function capture(signal) {
   panel.hide();
   for (const win of overlays) win.hide();
   notch?.suspend(true);
+  desktopCanvas?.suspend(true);
   try {
     await delay(180);
     signal?.throwIfAborted();
@@ -240,6 +259,7 @@ async function capture(signal) {
     for (const win of overlays) if (!win.isDestroyed()) win.showInactive();
     if (wasVisible && !panel.isDestroyed()) panel.showInactive();
     notch?.suspend(false);
+    desktopCanvas?.suspend(false);
   }
 }
 const approvalQueue = new ApprovalQueue(presentApproval);
@@ -275,16 +295,19 @@ function presentApproval(action, signal) {
   });
 }
 async function desktopInput(request, signal) {
+  desktopCanvas?.setInteractive(false);
   // Return focus to the underlying application. Hide the notch as well: a target
   // at the top center must not accidentally click one of our own quick controls.
   panel.hide();
   notch?.suspend(true);
+  desktopCanvas?.suspend(true);
   try {
     await delay(350);
     signal.throwIfAborted();
     return await native.input(request, signal);
   } finally {
     notch?.suspend(false);
+    desktopCanvas?.suspend(false);
   }
 }
 async function renderPDF(html, signal) {
@@ -326,15 +349,52 @@ async function safeTool(name, args, signal, jobId = null) {
   if (name === "search_web") return searchWeb(args.query, signal);
   if (name === "create_document")
     return createDocument(args, signal, (html) => renderPDF(html, signal));
-  if (name === "show_visual") {
-    const spec = validateVisual(args.spec),
-      visual = { id: crypto.randomUUID(), jobId, spec };
+  if (name === "show_visual" || name === "update_visual") {
+    const isBackground = Boolean(
+      jobId && tasks.get(jobId)?.kind === "background",
+    );
+    const previous = isBackground
+      ? visualResults.findLast((v) => v.jobId === jobId)
+      : desktopCanvas.current ||
+        visualResults.findLast((v) => v.jobId === jobId);
+    const spec =
+      name === "show_visual"
+        ? validateVisual(args.spec)
+        : applyVisualPatch(previous?.spec, args.changes);
+    const visual = {
+      id: crypto.randomUUID(),
+      jobId,
+      spec,
+      explanationFresh:
+        name === "show_visual" ||
+        Object.hasOwn(JSON.parse(args.changes), "steps"),
+    };
     visualResults.push(visual);
     visualResults = visualResults.slice(-8);
     emit("visual", visual);
-    return (
-      "Interactive visual added to the notch conversation. Title: " + spec.title
-    );
+    if (!isBackground && settings.value.desktopVisuals)
+      desktopCanvas.present(visual, activeDisplay, {
+        preserveView:
+          name === "update_visual" &&
+          desktopCanvas.current?.id === previous?.id,
+      });
+    return JSON.stringify({
+      status: isBackground
+        ? "Archived for this background job; not shown on desktop"
+        : settings.value.desktopVisuals
+          ? "Shown on transparent desktop canvas in pass-through mode; no chat opening required"
+          : "Archived in notch (desktop canvas disabled)",
+      id: visual.id,
+      kind: spec.kind,
+      objects: spec.objects?.map((o) => ({
+        id: o.id,
+        type: o.type,
+        label: o.label,
+      })),
+      steps: spec.steps?.map((s) => s.title),
+      context: visualContext(spec),
+      note: "When enabled, foreground answers narrate teaching steps automatically. User controls Interact, teaching steps, narration, motion and dismissal. Use update_visual for follow-ups; geometry is explanatory, not verified simulation.",
+    });
   }
   // Only these existing approval-gated data operations may run off-desktop.
   if (!["read_file", "write_file", "fetch_url"].includes(name))
@@ -398,7 +458,11 @@ async function dataTool(name, args, signal) {
 }
 async function execute(name, args, signal) {
   signal.throwIfAborted();
-  if (["search_web", "create_document", "show_visual"].includes(name))
+  if (
+    ["search_web", "create_document", "show_visual", "update_visual"].includes(
+      name,
+    )
+  )
     return safeTool(name, args, signal, currentTaskId);
   setState("working");
   if (name === "screenshot") return capture(signal);
@@ -461,6 +525,9 @@ async function ask(text, mode = "talk", display, taskId = null) {
     mode = "agent";
     text = text.replace(/^agent\b[\s,:]*/i, "");
   }
+  const visualBeforeId = desktopCanvas.current?.id;
+  desktopCanvas?.cancelNarration();
+  desktopCanvas?.setInteractive(false);
   const current = (controller = new AbortController());
   const signal = current.signal;
   requestRunning = true;
@@ -479,10 +546,17 @@ async function ask(text, mode = "talk", display, taskId = null) {
         ? await capture(signal)
         : null;
     const chunks = [];
+    let answerVisualId = null;
     const answer = await runAgent({
       text,
       mode,
       history: task ? task.history : history,
+      activeVisual: desktopCanvas.current
+        ? {
+            ...visualContext(desktopCanvas.current.spec),
+            activeStep: desktopCanvas.step,
+          }
+        : null,
       outputDirectory: /document|report|pdf|docx|write|create/i.test(text)
         ? app.getPath("documents")
         : "",
@@ -497,7 +571,12 @@ async function ask(text, mode = "talk", display, taskId = null) {
           tools,
           signal,
         }),
-      execute,
+      execute: async (name, args, signal) => {
+        const result = await execute(name, args, signal);
+        if (["show_visual", "update_visual"].includes(name))
+          answerVisualId = desktopCanvas.current?.id || null;
+        return result;
+      },
       approve,
       onMessage: (text) => {
         chunks.push(text);
@@ -523,16 +602,18 @@ async function ask(text, mode = "talk", display, taskId = null) {
           .slice(0, 12000),
       },
     );
-    if (task) {
-      task.history = targetHistory.slice(-12);
-      tasks.update(taskId, {
-        status: answer.startsWith("That action was denied.")
-          ? "cancelled"
-          : "completed",
-        result: answer,
-      });
-    } else history = history.slice(-12);
-    if (settings.value.captions && answer)
+    if (task) task.history = targetHistory.slice(-12);
+    else history = history.slice(-12);
+    if (
+      settings.value.captions &&
+      answer &&
+      !hasFreshVisualGuide(
+        desktopCanvas,
+        visualBeforeId,
+        settings.value,
+        answerVisualId,
+      )
+    )
       broadcast("caption", {
         text: answer.slice(0, 600),
         bounds: activeDisplay.bounds,
@@ -540,7 +621,15 @@ async function ask(text, mode = "talk", display, taskId = null) {
     if (settings.value.speak && answer) {
       setState("speaking");
       try {
-        await speech.speak(answer, settings.value, signal);
+        await speakVisualAnswer({
+          canvas: desktopCanvas,
+          beforeId: visualBeforeId,
+          expectedId: answerVisualId,
+          settings: settings.value,
+          answer,
+          signal,
+          speak: (text, signal) => speech.speak(text, settings.value, signal),
+        });
       } catch (e) {
         if (!signal.aborted)
           emit("error", "Answer ready, but voice failed: " + e.message);
@@ -548,6 +637,14 @@ async function ask(text, mode = "talk", display, taskId = null) {
         broadcast("caption", null);
       }
     }
+    signal.throwIfAborted();
+    if (task)
+      tasks.update(taskId, {
+        status: answer.startsWith("That action was denied.")
+          ? "cancelled"
+          : "completed",
+        result: answer,
+      });
   } catch (e) {
     if (task)
       tasks.update(taskId, {
@@ -564,8 +661,23 @@ async function ask(text, mode = "talk", display, taskId = null) {
       controller = null;
       setState("idle");
     }
+    const resume = afterVisualGuide;
+    afterVisualGuide = null;
+    const resumeVersion = visualResumeVersion;
+    if (resume)
+      setImmediate(() => {
+        if (resumeVersion === visualResumeVersion) resume();
+      });
     setImmediate(pumpTasks);
   }
+}
+function visualGuideSpeaking() {
+  return (
+    state === "speaking" &&
+    requestRunning &&
+    controller &&
+    desktopCanvas.audioState === "tour"
+  );
 }
 function submit(text, mode = "talk", taskId, display) {
   if (
@@ -575,6 +687,35 @@ function submit(text, mode = "talk", taskId, display) {
     !["talk", "agent", "background"].includes(mode)
   )
     throw Error("Enter a question up to 12,000 characters.");
+  if (mode === "talk") {
+    if (visualGuideSpeaking()) {
+      visualResumeVersion++;
+      afterVisualGuide = () => {
+        try {
+          submit(text, mode, taskId, display);
+        } catch (e) {
+          error(e);
+        }
+      };
+      desktopCanvas.cancelNarration();
+      return null;
+    }
+  }
+  const visualCommand =
+    mode === "talk" && !taskId && desktopCanvas.current
+      ? visualVoiceCommand(text)
+      : null;
+  if (visualCommand) {
+    if (controller || listeningMode || requestRunning)
+      throw Error("Finish the current task first.");
+    emit("message", { role: "user", text, mode });
+    runVisualVoiceCommand(
+      desktopCanvas,
+      visualCommand,
+      settings.value.speak,
+    ).catch(error);
+    return null;
+  }
   if (!settings.key) {
     showPanel("settings");
     throw Error("Save your OpenRouter API key in Settings first.");
@@ -622,6 +763,8 @@ function cancelTask(id) {
     return;
   }
   if (currentTaskId === id) {
+    afterVisualGuide = null;
+    visualResumeVersion++;
     controller?.abort();
     speech.stop();
     if (approval?.jobId === id) approval.resolve(false);
@@ -637,6 +780,16 @@ function startHold(mode, source = "pointer") {
         "Shortcut monitoring is starting. Try again shortly or use the on-screen hold button.",
       ),
     );
+    return;
+  }
+  if (visualGuideSpeaking()) {
+    visualResumeVersion++;
+    const held = { mode, source, started: Date.now(), ready: false };
+    heldTurn = held;
+    afterVisualGuide = () => {
+      if (heldTurn === held) listen(mode, true);
+    };
+    desktopCanvas.cancelNarration();
     return;
   }
   if (controller || listeningMode || requestRunning) {
@@ -666,6 +819,14 @@ function releaseHold(source = "pointer", cancel = false) {
   speech.finishListening();
 }
 function listen(mode, held = false) {
+  if (visualGuideSpeaking()) {
+    visualResumeVersion++;
+    afterVisualGuide = () => listen(mode, held);
+    desktopCanvas.cancelNarration();
+    return;
+  }
+  desktopCanvas?.cancelNarration();
+  desktopCanvas?.setInteractive(false);
   if (controller || listeningMode || requestRunning) {
     stop();
     return;
@@ -741,6 +902,8 @@ function listen(mode, held = false) {
   }
 }
 function toggleDictation() {
+  desktopCanvas?.cancelNarration();
+  desktopCanvas?.setInteractive(false);
   if (controller || listeningMode) {
     stop(false);
     return;
@@ -873,6 +1036,7 @@ function installIPC() {
     messages,
     tasks: tasks.snapshot(),
     visuals: visualResults,
+    canvasStatus: desktopCanvas.snapshot(),
     approval: approvalPublic,
     packaged: app.isPackaged,
   }));
@@ -895,6 +1059,7 @@ function installIPC() {
       });
       broadcast("buddy", next.buddy);
       notch?.setEnabled(next.notch);
+      if (!next.desktopVisuals) desktopCanvas.dismiss();
       edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
       emit("edge-status", edge.status());
       if (!next.notch) {
@@ -917,6 +1082,46 @@ function installIPC() {
   });
   handle("voices", () => speech.voices());
   handle("speech-diagnostics", () => speech.diagnostics());
+  handle("canvas-command", (action, value) =>
+    desktopCanvas.command(action, value),
+  );
+  handle("canvas-present", (id) => {
+    if (!settings.value.desktopVisuals)
+      throw Error("Enable desktop visual answers in Settings first.");
+    const visual = visualResults.find((v) => v.id === id);
+    if (!visual) throw Error("Visual no longer available.");
+    desktopCanvas.present(
+      visual,
+      screen.getDisplayNearestPoint(screen.getCursorScreenPoint()),
+    );
+    return desktopCanvas.snapshot();
+  });
+  const trustedCanvas = (event) => {
+    if (
+      !desktopCanvas.window ||
+      event.sender !== desktopCanvas.window.webContents ||
+      event.senderFrame !== event.sender.mainFrame
+    )
+      throw Error("Untrusted canvas sender.");
+  };
+  ipcMain.handle("canvas:get", (event) => {
+    trustedCanvas(event);
+    return desktopCanvas.snapshot(true);
+  });
+  ipcMain.handle("canvas:command", async (event, action, value) => {
+    trustedCanvas(event);
+    try {
+      return { ok: true, data: await desktopCanvas.command(action, value) };
+    } catch (error) {
+      return { ok: false, error: error.message };
+    }
+  });
+  ipcMain.on("canvas:error", (event, message) => {
+    try {
+      trustedCanvas(event);
+      desktopCanvas.rendererError(message);
+    } catch {}
+  });
   handle("edge-status", () => edge.status());
   handle("edge-background", () => edge.background());
   handle("edge-setup", () => {
@@ -1069,6 +1274,100 @@ async function runDesktopSmoke() {
       'typeof window.clicky === "undefined" && typeof require === "undefined"',
     );
     if (!isolated) throw Error("Notch renderer privileges are not isolated.");
+    // Real native window and trusted IPC smoke; never uses AI, microphone or external services.
+    const smokeSignal = new AbortController().signal;
+    const smokeSpec = {
+      kind: "canvas2d",
+      title: "Desktop canvas smoke",
+      caption: "Transparent local geometry",
+      elements: [
+        {
+          id: "arrow",
+          type: "arrow",
+          x: 200,
+          y: 300,
+          x2: 700,
+          y2: 700,
+          color: "#aabbcc",
+        },
+      ],
+    };
+    await safeTool(
+      "show_visual",
+      { spec: JSON.stringify(smokeSpec) },
+      smokeSignal,
+    );
+    const canvasWindow = desktopCanvas.window;
+    await loaded(canvasWindow);
+    const canvasReady = await canvasWindow.webContents
+      .executeJavaScript(`(async()=>{
+      const s=await window.desktopCanvas.get();
+      return s.visual.spec.kind==='canvas2d'&&!s.interactive&&Boolean(document.querySelector('#stage canvas'))&&document.querySelector('#stage canvas').getContext('2d').getImageData(0,0,1,1).data[3]===0&&typeof require==='undefined'&&typeof window.notch==='undefined';
+    })()`);
+    if (!canvasReady || canvasWindow.isFocusable())
+      throw Error(
+        "Transparent sandboxed pass-through canvas did not initialize.",
+      );
+    const interaction = await notch.window.webContents.executeJavaScript(
+      `window.notch.call('canvas-command','interact')`,
+    );
+    if (
+      !interaction.ok ||
+      !desktopCanvas.interactive ||
+      !canvasWindow.isFocusable()
+    )
+      throw Error("Explicit canvas interaction failed.");
+    await canvasWindow.webContents.executeJavaScript(
+      `window.desktopCanvas.command('passthrough')`,
+    );
+    if (desktopCanvas.interactive || canvasWindow.isFocusable())
+      throw Error("Canvas did not return input to Windows.");
+    desktopCanvas.suspend(true);
+    if (canvasWindow.isVisible())
+      throw Error("Canvas not hidden during capture/input.");
+    desktopCanvas.suspend(false);
+    const before = desktopCanvas.current,
+      viewKey = desktopCanvas.viewKey;
+    const bg = tasks.enqueue("Smoke background visual", null, "background");
+    await safeTool(
+      "show_visual",
+      { spec: JSON.stringify(smokeSpec) },
+      smokeSignal,
+      bg.id,
+    );
+    await safeTool(
+      "update_visual",
+      { changes: '{"title":"Background edit"}' },
+      smokeSignal,
+      bg.id,
+    );
+    if (desktopCanvas.current !== before)
+      throw Error("Background worker replaced foreground desktop canvas.");
+    const emptyBg = tasks.enqueue("Smoke empty visual", null, "background");
+    let denied = false;
+    try {
+      await safeTool(
+        "update_visual",
+        { changes: '{"title":"Do not change foreground"}' },
+        smokeSignal,
+        emptyBg.id,
+      );
+    } catch {
+      denied = true;
+    }
+    if (!denied) throw Error("Background worker accessed another job visual.");
+    await safeTool(
+      "update_visual",
+      { changes: '{"title":"Updated foreground"}' },
+      smokeSignal,
+    );
+    if (
+      desktopCanvas.viewKey !== viewKey ||
+      desktopCanvas.window !== canvasWindow ||
+      desktopCanvas.current.spec.title !== "Updated foreground"
+    )
+      throw Error("Follow-up failed to reuse desktop canvas.");
+    desktopCanvas.dismiss();
     console.log("DESKTOP_SMOKE_OK");
     quitting = true;
     app.quit();
@@ -1084,6 +1383,14 @@ else {
     .whenReady()
     .then(() => {
       settings = new Settings(app.getPath("userData"), safeStorage);
+      desktopCanvas = new DesktopCanvas({
+        BrowserWindow,
+        screen,
+        onState: (data) => emit("canvas-status", data),
+        canNarrate: () => !controller && !listeningMode && !requestRunning,
+        canInteract: () => !controller && !listeningMode && !requestRunning,
+        speak: (text, signal) => speech.speak(text, settings.value, signal),
+      });
       backgroundJobs = new BackgroundJobs({
         tasks,
         run: async (job, signal) => {
@@ -1100,6 +1407,9 @@ else {
             text: job.prompt,
             mode: "background",
             history: job.history,
+            activeVisual: visualContext(
+              visualResults.findLast((v) => v.jobId === job.id)?.spec,
+            ),
             signal,
             outputDirectory: /document|report|pdf|docx|write|create/i.test(
               job.prompt,
@@ -1224,6 +1534,7 @@ else {
         else panel.show();
       });
       const displayChanged = () => {
+        desktopCanvas.refresh();
         createOverlays();
         notch?.render();
       };
@@ -1290,6 +1601,7 @@ else {
     keys?.stop();
     stop();
     globalShortcut.unregisterAll();
+    desktopCanvas?.dispose();
     if (edge && !edgeClosing) {
       event.preventDefault();
       edgeClosing = true;
