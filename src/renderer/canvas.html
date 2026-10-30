@@ -31,13 +31,24 @@
         ><button id="animate">Play motion</button
         ><button id="stop-audio">Stop narration</button>
       </div>
+      <div id="parts" hidden>
+        <label for="part-select">Selected part</label
+        ><select id="part-select" aria-label="Select a component"></select
+        ><button id="focus-part">Focus part</button
+        ><button id="explain-part">Explain this component</button>
+      </div>
+      <p id="part-description" role="status" aria-live="polite"></p>
       <p id="caption"></p>
+      <a id="modeling-preview" href="?example=modeling" hidden
+        >Try native assemblies and hinges ↗</a
+      >
       <a id="connector-preview" href="?example=connector" hidden
         >Try conceptual connector steps ↗</a
       >
       <p id="hint">
-        Drag to orbit · scroll to zoom · right-drag to pan. No opaque canvas
-        background. These are explanatory graphics, not simulations.
+        Click a part to select · drag to orbit · scroll to zoom · right-drag to
+        pan. No opaque canvas background. These are explanatory graphics, not
+        simulations.
       </p>
       <p id="error" role="status" hidden></p>
     </footer>

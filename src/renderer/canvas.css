@@ -167,3 +167,29 @@ body.interactive #input-mode {
   color: #c9d9ef;
   font-size: 12px;
 }
+
+#parts {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+#part-select {
+  min-width: 100px;
+  flex: 1;
+  max-width: 260px;
+}
+#part-description {
+  font-size: 12px;
+  color: #d4e4f4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0;
+}
+.scene-part-label[hidden] {
+  display: none !important;
+}
+.scene-label-layer {
+  z-index: 1;
+}

@@ -1,3 +1,8 @@
+const {
+  geometryFields,
+  validateHierarchy,
+  expandAssemblies,
+} = require("./modeling");
 // Model output is data, never HTML, scripts, shaders or remote assets.
 const finite = (v, min, max) =>
   typeof v === "number" && Number.isFinite(v) && v >= min && v <= max;
@@ -20,6 +25,11 @@ function validateVisual(raw) {
   check(
     s && text(s.title) && text(s.caption, 2000),
     "Visual needs title (160 max) and caption (2000 max).",
+  );
+  check(
+    s.kind === "scene3d" ||
+      (s.assemblies === undefined && s.lighting === undefined),
+    "Assemblies and lighting only apply to 3D scenes.",
   );
   const out = { kind: s.kind, title: s.title, caption: s.caption };
   let ids = [];
@@ -111,6 +121,13 @@ function validateVisual(raw) {
     });
     ids = out.elements.map((e) => e.id);
   } else if (s.kind === "scene3d") {
+    const expanded = expandAssemblies(s, validateVisual);
+    s.objects = expanded.objects.map((o) =>
+      o?.type === "group"
+        ? { color: "#a4b5cf", x: 0, y: 0, z: 0, size: 1, ...o }
+        : o,
+    );
+    if (expanded.templates.length) out.assemblies = expanded.templates;
     check(
       Array.isArray(s.objects) &&
         s.objects.length > 0 &&
@@ -134,6 +151,11 @@ function validateVisual(raw) {
             "line",
             "label",
             "mesh",
+            "group",
+            "roundedBox",
+            "tube",
+            "extrude",
+            "lathe",
           ].includes(o.type) &&
           text(o.label ?? "") &&
           color(o.color) &&
@@ -216,8 +238,17 @@ function validateVisual(raw) {
         v.vertices = o.vertices.map((p) => [...p]);
         v.faces = o.faces.map((p) => [...p]);
       }
+      Object.assign(v, geometryFields(o));
       return v;
     });
+    validateHierarchy(out.objects);
+    if (s.lighting !== undefined) {
+      check(
+        ["studio", "soft", "technical"].includes(s.lighting),
+        "Invalid lighting preset.",
+      );
+      out.lighting = s.lighting;
+    }
     check(motions <= 8, "At most eight animated objects per scene.");
     check(vertices <= 4096 && faces <= 8192, "Scene geometry budget exceeded.");
     ids = out.objects.map((o) => o.id);
@@ -307,6 +338,18 @@ function validateVisual(raw) {
       return result;
     });
   }
+  if (out.kind === "scene3d" && out.steps?.some((s) => s.poses?.length)) {
+    const posed = structuredClone(out.objects);
+    for (const step of out.steps) {
+      for (const p of step.poses || []) {
+        const o = posed.find((o) => o.id === p.id);
+        if (p.position) [o.x, o.y, o.z] = p.position;
+        if (p.rotation) o.rotation = p.rotation;
+        if (p.scale) o.scale = p.scale;
+      }
+      validateHierarchy(posed);
+    }
+  }
   if (s.placement !== undefined) {
     check(
       ["left", "center", "right"].includes(s.placement),
@@ -314,6 +357,10 @@ function validateVisual(raw) {
     );
     out.placement = s.placement;
   }
+  check(
+    JSON.stringify(out).length <= 60000,
+    "Expanded/canonical visual specification exceeds 60,000 characters.",
+  );
   return out;
 }
 function applyVisualPatch(current, raw) {
@@ -340,6 +387,8 @@ function applyVisualPatch(current, raw) {
           "elements",
           "steps",
           "placement",
+          "assemblies",
+          "lighting",
         ].includes(k),
       ),
     "Unknown or empty visual patch.",
@@ -362,6 +411,8 @@ function applyVisualPatch(current, raw) {
     "elements",
     "steps",
     "placement",
+    "assemblies",
+    "lighting",
   ])
     if (Object.hasOwn(p, key)) next[key] = p[key];
   if (p.objects !== undefined || p.remove !== undefined) {
@@ -407,6 +458,17 @@ function applyVisualPatch(current, raw) {
               "vertices",
               "faces",
               "motion",
+              "parent",
+              "pivot",
+              "material",
+              "description",
+              "labelOffset",
+              "profile",
+              "depth",
+              "bevel",
+              "radius",
+              "segments",
+              "assembly",
             ].includes(k),
           ),
           "Unknown object patch field.",
@@ -415,7 +477,14 @@ function applyVisualPatch(current, raw) {
         if (i < 0) next.objects.push(change);
         else {
           next.objects[i] = { ...next.objects[i], ...change };
-          if (change.motion === null) delete next.objects[i].motion;
+          for (const k of [
+            "motion",
+            "parent",
+            "pivot",
+            "material",
+            "labelOffset",
+          ])
+            if (change[k] === null) delete next.objects[i][k];
         }
       }
     }
@@ -426,9 +495,19 @@ function visualContext(spec) {
   if (!spec) return null;
   const s = structuredClone(spec);
   s.caption = s.caption.slice(0, 400);
+  if (s.assemblies)
+    s.assemblies = s.assemblies.map((t) => ({
+      id: t.id,
+      partIds: t.parts.map((p) => p.id),
+    }));
   if (s.objects)
     for (const o of s.objects) {
       o.label = o.label.slice(0, 64);
+      if (o.description) o.description = o.description.slice(0, 160);
+      if (o.profile) {
+        o.profilePointCount = o.profile.length;
+        delete o.profile;
+      }
       if (o.vertices) {
         o.vertexCount = o.vertices.length;
         delete o.vertices;
@@ -469,6 +548,33 @@ function visualContext(spec) {
   if (JSON.stringify(s).length > 18000 && s.steps) {
     s.steps = s.steps.map(({ title, narration }) => ({ title, narration }));
     s.stepTargetsOmitted = true;
+  }
+  if (JSON.stringify(s).length > 18000 && s.objects) {
+    s.objects = s.objects.map((o) => ({
+      id: o.id,
+      type: o.type,
+      parent: o.parent,
+      label: o.label?.slice(0, 32),
+      x: o.x,
+      y: o.y,
+      z: o.z,
+      rotation: o.rotation,
+      scale: o.scale,
+      pivot: o.pivot,
+    }));
+    if (s.assemblies)
+      s.assemblies = s.assemblies.map((t) => ({
+        id: t.id,
+        partCount: t.partIds.length,
+      }));
+    s.steps = s.steps?.map(({ title }) => ({ title }));
+    s.detailsOmitted = true;
+    for (const o of s.objects)
+      for (const k of ["x", "y", "z", "rotation", "scale", "pivot"])
+        if (o[k] !== undefined)
+          o[k] = Array.isArray(o[k])
+            ? o[k].map((n) => Math.round(n * 1e6) / 1e6)
+            : Math.round(o[k] * 1e6) / 1e6;
   }
   return s;
 }

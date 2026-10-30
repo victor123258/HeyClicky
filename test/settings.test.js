@@ -42,6 +42,6 @@ test('legacy preferences gain notch and automatic recognition-language defaults'
   assert.equal(validate({speechLanguage:'en-US',notch:false}).speechLanguage,'en-US');
   assert.throws(()=>validate({speechLanguage:'en; bad-command'}));assert.throws(()=>validate({notch:'yes'}));
 });
-test('Hidden Edge window is an explicit preference, not a silent migration',()=>{
-  assert.equal(validate({}).edgeWindowMode,'minimized');assert.equal(validate({edgeWindowMode:'hidden'}).edgeWindowMode,'hidden');assert.throws(()=>validate({edgeWindowMode:'headless'}));assert.equal(validate({edgeWindowMode:'hidden'}).edgeBackground,false);
+test('New background setup defaults to hidden, while legacy explicit minimized preference survives',()=>{
+  assert.equal(validate({}).edgeWindowMode,'hidden');assert.equal(validate({edgeWindowMode:'minimized',edgeBackground:true}).edgeWindowMode,'minimized');assert.equal(validate({edgeWindowMode:'hidden'}).edgeWindowMode,'hidden');assert.throws(()=>validate({edgeWindowMode:'headless'}));assert.equal(validate({edgeWindowMode:'hidden'}).edgeBackground,false);
 });

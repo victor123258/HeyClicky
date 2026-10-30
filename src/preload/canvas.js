@@ -9,6 +9,9 @@ const actions = new Set([
   "tour",
   "stop-audio",
   "animate",
+  "select",
+  "focus",
+  "explain-part",
 ]);
 contextBridge.exposeInMainWorld("desktopCanvas", {
   get: () => ipcRenderer.invoke("canvas:get"),

@@ -126,3 +126,23 @@ Physical Windows speech/Edge/GPU/focus and live OpenRouter quality/speed are man
 - [ ] Optional real-browser smoke: install `playwright-core` without changing production dependencies, start `npm run preview`, then `CHROMIUM_PATH=/path/to/chrome node scripts/graphics-smoke.cjs`. The connector sample is not a live-model response or a verified Pi model.
 
 See [VIDEO-GAP-AUDIT.md](VIDEO-GAP-AUDIT.md) for source/evidence limits and remaining non-parity claims.
+
+## Native modeling and component selection (1.8.0)
+
+- [ ] Install 1.8; verify previously working Windows and optional Edge voice, hold/release/Stop, dictation, approvals and background isolation before testing new graphics.
+- [ ] Generate rounded, extruded, lathed and curved-tube geometry. Ask for two reused connector assemblies and per-step hinge rotations. Children follow their parent; the hinge pivot stays fixed in world space. Reverse steps reconstruct earlier poses. Invalid profiles/cycles/expansion/transform budgets reject without replacing the last good scene.
+- [ ] Enable Interact, click visible parts and choose groups/leaves from the part list. A drag/pan must not select, Escape/pass-through must disable picking, blank-click clears selection, hidden parts cannot be selected. Test touch/pen separately. Long untrusted descriptions/labels remain plain text and scroll safely; selected/highlighted callouts take priority when crowded.
+- [ ] Focus part animates camera to current world bounds and manual orbit interrupts focus; reduced motion applies immediately. Selection/camera survive normal edits; transforms/colors tween. Reset/new scene reframes; hiding/deleting/new scene/dismissal clears stale selection.
+- [ ] Explain this component returns click-through, asks about the exact selected ID, and uses the configured model/key/screenshot/speech settings. Voice commands “explain this component” / “focus selected part” work after selection. Missing key/no selection/stale scene/busy task/hidden ID must not trigger a different request or operate another desktop app. Verify with live model: generated descriptions are not authoritative hardware facts.
+- [ ] Check transparent rendering, label contrast/leader lines and controls on real applications, 100–200% DPI, remote desktop/GPU-disabled configurations and secondary monitors. No automatic capture of the canvas itself or interception of native input. Repeated focus/patch/close cycles must not leak GPU contexts or leave hidden input windows.
+
+Optional real-browser `scripts/graphics-smoke.cjs` now also covers actual curved/extruded shapes, fixed hinge pivot/inherited child motion, reuse independence, mouse picking, focus, camera preservation, color transition, label layout and pass-through. Windows startup smoke checks stale selection IPC rejection without requiring 3D GPU support. Physical device/live-model acceptance is still manual.
+
+## Edge helper window regression (1.8.1)
+
+- [ ] Starting from a saved Minimized preference with background already approved, click **Hide Edge helper**. Its desktop/Alt-Tab/taskbar *running window* disappears, Settings now shows Hidden and persists across restart. Normal/pinned Edge windows/icons must remain untouched.
+- [ ] New visible setup requires successful microphone test + consent; **Enable background use & hide window** hides it. Before approval no background launch/hide is allowed. Test permission denied and speech-service failures with visible setup.
+- [ ] Save Hidden while helper is connected: it hides immediately without the extra button. Save Minimized: it returns to the taskbar; choose Hide again. Revoking background approval restores a connected setup window; a disconnected helper is not launched just by saving.
+- [ ] Repeat cold launches, delayed window creation and hold/release/dictation/Stop. Native requests retry discovery/verify state (≤5 seconds per helper invocation); startup, stream connection and speech-ready reassert background behavior, without an idle PowerShell polling loop. A transient launch flash is possible.
+- [ ] Restore setup while a startup hide is in flight: restore wins, setup remains visible and stays visible across new speech turns until explicitly backgrounded. Closing/quit must still close only the private helper; no retained microphone recording.
+- [ ] If native discovery/control fails, report an unverified background state rather than success. Recognition may still require restoring visible setup or choosing the Minimized/Windows fallback. Verify on real Edge/Windows; mocked protocol tests do not prove actual microphone/OS behavior.

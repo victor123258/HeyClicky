@@ -99,7 +99,11 @@ test("Visible helper requires recognition success AND explicit consent for backg
   assert.equal(d.querySelector("#background").disabled, false);
   d.querySelector("#background").click();
   await wait();
-  assert.ok(f.events.some((e) => e.type === "background-approved"));
+  assert.ok(
+    f.events.some(
+      (e) => e.type === "background-approved" && e.windowMode === "hidden",
+    ),
+  );
 });
 test("Helper held recognition never submits before finish and acknowledges Stop without late text", async (t) => {
   const f = await fixture(t);

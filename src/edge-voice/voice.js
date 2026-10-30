@@ -293,9 +293,9 @@
   $("#background").onclick = async () => {
     if (!testPassed || !$("#consent").checked) return;
     try {
-      await post({ type: "background-approved" });
+      await post({ type: "background-approved", windowMode: "hidden" });
       $("#background-status").textContent =
-        "Background use enabled using the app’s saved window behavior. Restore it from app Settings if permission or another visible gesture is needed.";
+        "Helper window hidden. Edge remains running and microphone indicators stay intact. Restore visible setup from app Settings if permission or another gesture is needed.";
     } catch (error) {
       $("#background-status").textContent = error.message;
     }

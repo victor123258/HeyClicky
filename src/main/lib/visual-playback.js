@@ -6,6 +6,8 @@ function visualVoiceCommand(text) {
     .trim()
     .replace(/[.!?]+$/, "");
   const commands = {
+    "focus selected part": "focus",
+    "explain this component": "explain-part",
     "next step": "next",
     "previous step": "previous",
     "repeat step": "repeat",
@@ -23,6 +25,11 @@ function visualVoiceCommand(text) {
   return Object.hasOwn(commands, t) ? commands[t] : null;
 }
 async function runVisualVoiceCommand(canvas, command, speak) {
+  if (command === "focus" || command === "explain-part")
+    return canvas.command(command, {
+      visualId: canvas.current?.id,
+      id: canvas.selectedId,
+    });
   if (command === "next" || command === "previous") {
     const step = canvas.step + (command === "next" ? 1 : -1);
     await canvas.command("step", step);

@@ -134,6 +134,7 @@ if (require.main === module)
     });
     try {
       await checkGraphics(browser, process.env.GRAPHICS_BASE_URL);
+      await checkModeling(browser, process.env.GRAPHICS_BASE_URL);
     } finally {
       await browser.close();
     }
@@ -141,3 +142,144 @@ if (require.main === module)
     console.error(e);
     process.exitCode = 1;
   });
+async function checkModeling(browser, base = "http://127.0.0.1:3000") {
+  const page = await browser.newPage({
+      viewport: { width: 1000, height: 800 },
+    }),
+    errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  try {
+    await page.goto(base + "/canvas.html?example=modeling");
+    await page.waitForSelector("#stage canvas");
+    assert.equal(await page.locator("#error").isVisible(), false);
+    const capture = () => page.evaluate(() => window.visuals.capture());
+    const dragStage = await page.locator("#stage canvas").boundingBox();
+    await page.mouse.move(
+      dragStage.x + dragStage.width / 2,
+      dragStage.y + dragStage.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      dragStage.x + dragStage.width / 2 + 45,
+      dragStage.y + dragStage.height / 2 + 20,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    assert.equal(await page.locator("#part-select").inputValue(), "");
+    await page.locator("#reset").click();
+    const before = await capture();
+    assert.ok(before.objects.left__latch);
+    assert.ok(before.objects.right__latch);
+    const stage = await page.locator("#stage canvas").boundingBox(),
+      [x, y] = before.objects.knob.screenPoint;
+    await page.mouse.click(stage.x + x, stage.y + y);
+    assert.ok(await page.locator("#part-select").inputValue());
+    await page.locator("#part-select").selectOption("left__latch");
+    assert.match(
+      await page.locator("#part-description").textContent(),
+      /Latch/,
+    );
+    const selected = await capture();
+    await page.locator("#focus-part").click();
+    await page.waitForTimeout(550);
+    assert.notDeepEqual((await capture()).camera, selected.camera);
+    await page.locator("#reset").click();
+    const reset = await capture();
+    await page.locator("#next").click();
+    await page.waitForFunction(
+      () =>
+        Math.abs(window.visuals.capture().objects.left__hinge.quaternion[0]) >
+        0.5,
+    );
+    await page.waitForTimeout(250);
+    const after = await capture();
+    assert.deepEqual(
+      after.objects.left__hinge.pivotWorld,
+      before.objects.left__hinge.pivotWorld,
+    );
+    assert.notDeepEqual(
+      after.objects.left__latch.worldPosition,
+      before.objects.left__latch.worldPosition,
+    );
+    assert.deepEqual(
+      after.objects.right__latch.worldPosition,
+      before.objects.right__latch.worldPosition,
+    );
+    assert.deepEqual(after.camera, reset.camera);
+    assert.equal(
+      await page.locator("#part-select").inputValue(),
+      "left__latch",
+    );
+    const boxes = await page
+      .locator(".scene-part-label:not([hidden])")
+      .evaluateAll((elements) =>
+        elements.map((e) => {
+          const r = e.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, h: r.height };
+        }),
+      );
+    assert.ok(boxes.length >= 3);
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i],
+          b = boxes[j];
+        assert.ok(
+          a.x + a.w <= b.x ||
+            b.x + b.w <= a.x ||
+            a.y + a.h <= b.y ||
+            b.y + b.h <= a.y,
+        );
+      }
+    const oldColor = await page.evaluate(
+      () => window.visuals.capture().objects.left__latch.colors[0],
+    );
+    await page.evaluate(() => {
+      const s = structuredClone(window.visuals.modelingExample.spec);
+      s.objects.find((o) => o.id === "left__latch").color = "#ff5500";
+      window.visuals.render(document.querySelector("#stage"), s, {
+        transparent: true,
+        desktop: true,
+        step: 1,
+        previousView: window.visuals.capture(),
+        interactive: true,
+      });
+    });
+    await page.waitForTimeout(200);
+    const changingColor = await page.evaluate(
+      () => window.visuals.capture().objects.left__latch.colors[0],
+    );
+    assert.notEqual(changingColor, oldColor);
+    await page.waitForFunction(
+      () =>
+        window.visuals.capture().objects.left__latch.colors[0] === "#ff5500",
+    );
+    assert.deepEqual((await capture()).camera, reset.camera);
+    await page.locator("#explain-part").click();
+    assert.match(await page.locator("#error").textContent(), /Windows app/);
+    await page.keyboard.press("Escape");
+    const oldSelection = await page.locator("#part-select").inputValue();
+    await page.mouse.click(stage.x + x, stage.y + y);
+    assert.equal(await page.locator("#part-select").inputValue(), oldSelection);
+    assert.equal(await page.locator("#focus-part").isDisabled(), true);
+    await page.screenshot({
+      path: ".cache/modeling-preview.png",
+      omitBackground: true,
+    });
+    for (const width of [640, 320]) {
+      await page.setViewportSize({ width, height: 480 });
+      await page.goto(base + "/canvas.html?example=modeling");
+      await page.waitForSelector("#stage canvas");
+      assert.equal(await page.locator("#error").isVisible(), false);
+      assert.ok(
+        await page.evaluate(() => document.body.scrollWidth <= innerWidth),
+      );
+    }
+    assert.deepEqual(errors, []);
+    console.log(
+      "MODELING_BROWSER_OK: curved/extruded assemblies, click selection, component controls, fixed world hinge pivots, inherited child motion, camera focus/preservation, labels and pass-through",
+    );
+  } finally {
+    await page.close();
+  }
+}
+module.exports.checkModeling = checkModeling;

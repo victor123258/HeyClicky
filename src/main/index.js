@@ -555,6 +555,15 @@ async function ask(text, mode = "talk", display, taskId = null) {
         ? {
             ...visualContext(desktopCanvas.current.spec),
             activeStep: desktopCanvas.step,
+            selectedPart: desktopCanvas.selectedPart()
+              ? {
+                  id: desktopCanvas.selectedId,
+                  label: desktopCanvas.selectedPart().label,
+                  description: (
+                    desktopCanvas.selectedPart().description || ""
+                  ).slice(0, 160),
+                }
+              : null,
           }
         : null,
       outputDirectory: /document|report|pdf|docx|write|create/i.test(text)
@@ -1040,7 +1049,7 @@ function installIPC() {
     approval: approvalPublic,
     packaged: app.isPackaged,
   }));
-  handle("save-settings", (value, key) => {
+  handle("save-settings", async (value, key) => {
     if (controller || listeningMode || requestRunning)
       throw Error("Stop the current task before changing settings.");
     const { validate } = require("./lib/settings");
@@ -1061,6 +1070,14 @@ function installIPC() {
       notch?.setEnabled(next.notch);
       if (!next.desktopVisuals) desktopCanvas.dismiss();
       edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
+      // Settings are already saved. A window failure is reported separately, not as a failed key/settings save.
+      await edge
+        .applyWindowPreferences(previous)
+        .catch(() =>
+          edge.changed(
+            "Settings saved, but Edge window state could not be verified. Click Hide Edge helper or restore visible setup.",
+          ),
+        );
       emit("edge-status", edge.status());
       if (!next.notch) {
         panel.show();
@@ -1123,7 +1140,7 @@ function installIPC() {
     } catch {}
   });
   handle("edge-status", () => edge.status());
-  handle("edge-background", () => edge.background());
+  handle("edge-background", () => edge.background("hidden"));
   handle("edge-setup", () => {
     if (controller || listeningMode || requestRunning)
       throw Error("Stop the current task before opening Edge setup.");
@@ -1317,6 +1334,11 @@ async function runDesktopSmoke() {
       !canvasWindow.isFocusable()
     )
       throw Error("Explicit canvas interaction failed.");
+    const guarded = await canvasWindow.webContents.executeJavaScript(
+      `window.desktopCanvas.command('select',{visualId:'stale-scene',id:'missing'})`,
+    );
+    if (guarded.ok !== false || desktopCanvas.selectedId !== null)
+      throw Error("Canvas accepted a stale selection.");
     await canvasWindow.webContents.executeJavaScript(
       `window.desktopCanvas.command('passthrough')`,
     );
@@ -1387,6 +1409,11 @@ else {
         BrowserWindow,
         screen,
         onState: (data) => emit("canvas-status", data),
+        onExplain: ({ id }) =>
+          submit(
+            `Explain the selected component (part ID ${JSON.stringify(id)}) in the current visual. Use its scene context and preserve the model; distinguish generated illustration from verified facts.`,
+            "talk",
+          ),
         canNarrate: () => !controller && !listeningMode && !requestRunning,
         canInteract: () => !controller && !listeningMode && !requestRunning,
         speak: (text, signal) => speech.speak(text, settings.value, signal),
@@ -1462,8 +1489,12 @@ else {
         native,
         getBackground: () => settings.value.edgeBackground,
         getWindowMode: () => settings.value.edgeWindowMode,
-        onBackground: (allowed) => {
-          settings.save({ ...settings.value, edgeBackground: allowed });
+        onBackground: (allowed, windowMode) => {
+          settings.save({
+            ...settings.value,
+            edgeBackground: allowed,
+            ...(windowMode ? { edgeWindowMode: windowMode } : {}),
+          });
           emit("edge-status", edge.status());
         },
         onStatus: (data) => emit("edge-status", data),

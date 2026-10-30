@@ -150,7 +150,7 @@ function showApproval(data) {
 function updateConfig(data) {
   if (data.canvasStatus) renderCanvasStatus(data.canvasStatus);
   config = data;
-  $("#edge-window-mode").value = data.edgeWindowMode || "minimized";
+  $("#edge-window-mode").value = data.edgeWindowMode || "hidden";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
   $("#edge-fallback").checked = data.edgeFallback !== false;
@@ -366,9 +366,11 @@ $("#test-key").onclick = safeTask(async () => {
 });
 $("#voice-provider").onchange = () =>
   ($("#edge-options").hidden = $("#voice-provider").value !== "edge");
-$("#edge-background").onclick = safeTask(async () =>
-  renderEdgeStatus(await call("edge-background")),
-);
+$("#edge-background").onclick = safeTask(async () => {
+  const status = await call("edge-background");
+  $("#edge-window-mode").value = status.windowMode;
+  renderEdgeStatus(status);
+});
 $("#edge-setup").onclick = safeTask(async () =>
   renderEdgeStatus(await call("edge-setup")),
 );

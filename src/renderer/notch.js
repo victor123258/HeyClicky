@@ -340,7 +340,7 @@ function renderThread() {
 function fillSettings(data) {
   config = data;
   if (data.canvasStatus) renderCanvasStatus(data.canvasStatus);
-  $("#edge-window-mode").value = data.edgeWindowMode || "minimized";
+  $("#edge-window-mode").value = data.edgeWindowMode || "hidden";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
   $("#edge-fallback").checked = data.edgeFallback !== false;
@@ -665,9 +665,11 @@ $("#test-key").onclick = task(async () => {
 });
 $("#voice-provider").onchange = () =>
   ($("#edge-options").hidden = $("#voice-provider").value !== "edge");
-$("#edge-background").onclick = task(async () =>
-  renderEdgeStatus(await call("edge-background")),
-);
+$("#edge-background").onclick = task(async () => {
+  const status = await call("edge-background");
+  $("#edge-window-mode").value = status.windowMode;
+  renderEdgeStatus(status);
+});
 $("#edge-setup").onclick = task(async () =>
   renderEdgeStatus(await call("edge-setup")),
 );

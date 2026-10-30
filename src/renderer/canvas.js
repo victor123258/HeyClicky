@@ -1,6 +1,7 @@
 const $ = (s) => document.querySelector(s);
 let state = { visual: null, interactive: false, step: 0, reset: 0 },
-  rendered = "";
+  rendered = "",
+  lastFocus = -1;
 const preview = !window.desktopCanvas;
 const aircraftSample = {
   id: "preview",
@@ -186,9 +187,11 @@ const aircraftSample = {
   },
 };
 const sample =
-  new URLSearchParams(location.search).get("example") === "connector"
-    ? window.connectorExample
-    : aircraftSample;
+  new URLSearchParams(location.search).get("example") === "modeling"
+    ? window.visuals.modelingExample
+    : new URLSearchParams(location.search).get("example") === "connector"
+      ? window.connectorExample
+      : aircraftSample;
 
 async function command(action, value) {
   try {
@@ -199,7 +202,15 @@ async function command(action, value) {
         draw(next);
         return;
       }
-      if (action === "step") next.step = value;
+      if (action === "select") next.selectedId = value.id;
+      else if (action === "focus") {
+        next.focusId = value.id;
+        next.focusRevision = (next.focusRevision || 0) + 1;
+      } else if (action === "explain-part")
+        throw Error(
+          "In the Windows app, this asks your chosen model about the selected component. No live AI in this preview.",
+        );
+      else if (action === "step") next.step = value;
       else if (action === "animate") next.animate = value;
       else if (action === "reset") {
         next.reset++;
@@ -221,6 +232,12 @@ async function command(action, value) {
   }
 }
 function draw(next) {
+  const transitionMs =
+    state.visual &&
+    state.visual.id !== next.visual?.id &&
+    state.viewKey === next.viewKey
+      ? 650
+      : undefined;
   const preserveMotion =
     state.visual?.id === next.visual?.id && state.step === next.step;
   const previousView =
@@ -263,6 +280,29 @@ function draw(next) {
   $("#previous").disabled = !state.interactive || state.step <= 0;
   $("#next").disabled = !state.interactive || state.step >= steps.length - 1;
   select.disabled = !state.interactive || !steps.length;
+  const allowed = new Set(window.visuals.visiblePartIds(spec, state.step));
+  const objects = (spec.objects || []).filter((o) => allowed.has(o.id)),
+    part = objects.find((o) => o.id === state.selectedId);
+  $("#parts").hidden = !objects.length;
+  $("#part-select").replaceChildren(
+    ...[{ id: "", label: "Click a part or choose…" }, ...objects].map((o) => {
+      const option = document.createElement("option");
+      option.value = o.id;
+      option.textContent =
+        (o.label || o.id) +
+        (o.label && o.label !== o.id ? " · " + o.id : "") +
+        (o.type === "group" ? " · assembly" : "");
+      return option;
+    }),
+  );
+  $("#part-select").value = state.selectedId || "";
+  $("#part-select").disabled = !state.interactive;
+  $("#focus-part").disabled = !state.interactive || !part;
+  $("#explain-part").disabled = !state.interactive || !part;
+  $("#part-description").textContent = part
+    ? (part.label || part.id) +
+      (part.description ? " — " + part.description : "")
+    : "";
   const key =
     visual.id +
     ":" +
@@ -275,6 +315,10 @@ function draw(next) {
     rendered = key;
     try {
       window.visuals.render($("#stage"), spec, {
+        transitionMs,
+        selectedId: state.selectedId,
+        interactive: state.interactive,
+        onSelect: (id) => command("select", { visualId: visual.id, id }),
         previousView,
         preserveMotion,
         transparent: true,
@@ -290,7 +334,19 @@ function draw(next) {
       window.desktopCanvas?.reportError(e.message);
     }
   }
+  window.visuals.setInteractive?.(state.interactive);
+  window.visuals.setSelection?.(state.selectedId || null);
+  if (state.focusId && state.focusRevision !== lastFocus) {
+    lastFocus = state.focusRevision;
+    window.visuals.focus?.(state.focusId);
+  }
 }
+$("#part-select").onchange = (e) =>
+  command("select", { visualId: state.visual.id, id: e.target.value || null });
+$("#focus-part").onclick = () =>
+  command("focus", { visualId: state.visual.id, id: state.selectedId });
+$("#explain-part").onclick = () =>
+  command("explain-part", { visualId: state.visual.id, id: state.selectedId });
 $("#animate").onclick = () => command("animate", !state.animate);
 $("#dismiss").onclick = () => command("dismiss");
 $("#passthrough").onclick = () => command("passthrough");
@@ -309,6 +365,7 @@ document.addEventListener("keydown", (e) => {
 });
 if (preview) {
   $("#connector-preview").hidden = false;
+  $("#modeling-preview").hidden = false;
   draw({
     visual: sample,
     interactive: true,
