@@ -23,6 +23,8 @@ const { timeQuestion } = require("./lib/clock");
 const { Voice } = require("./voice");
 const { EdgeVoice } = require("./edge-voice");
 const { Notch } = require("./notch");
+const { notchBounds } = require("./lib/notch-layout");
+const { panelLayout } = require("./lib/window-layout");
 const { Tasks } = require("./lib/tasks");
 const { BackgroundJobs, ApprovalQueue } = require("./lib/background");
 const { searchWeb, text: htmlText } = require("./lib/research");
@@ -212,7 +214,12 @@ function createOverlays() {
     win.webContents.on("did-finish-load", () =>
       win.webContents.send("overlay", {
         type: "init",
-        data: { bounds: display.bounds, buddy: settings.value.buddy },
+        data: {
+          bounds: display.bounds,
+          workArea: display.workArea,
+          buddy: settings.value.buddy,
+          buddySize: settings.value.buddySize,
+        },
       }),
     );
     overlays.push(win);
@@ -1067,6 +1074,7 @@ function installIPC() {
         path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe"),
       });
       broadcast("buddy", next.buddy);
+      broadcast("buddy-size", next.buddySize);
       notch?.setEnabled(next.notch);
       if (!next.desktopVisuals) desktopCanvas.dismiss();
       edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
@@ -1272,7 +1280,7 @@ async function runDesktopSmoke() {
     if (
       !expanded.expanded ||
       notch.window.getBounds().height !==
-        Math.min(800, screen.getPrimaryDisplay().workArea.height)
+        notchBounds(screen.getPrimaryDisplay(), "expanded").height
     )
       throw Error("Notch did not expand through its trusted bridge.");
     await notch.window.webContents.executeJavaScript(
@@ -1526,10 +1534,7 @@ else {
       session.defaultSession.setPermissionCheckHandler(() => false);
       panel = new BrowserWindow({
         show: false,
-        width: 1100,
-        height: 790,
-        minWidth: 850,
-        minHeight: 650,
+        ...panelLayout(screen.getPrimaryDisplay()),
         title: "HeyClicky Community",
         backgroundColor: "#f6f7fb",
         autoHideMenuBar: true,
@@ -1565,6 +1570,14 @@ else {
         else panel.show();
       });
       const displayChanged = () => {
+        if (panel && !panel.isDestroyed()) {
+          const { minWidth, minHeight, ...bounds } = panelLayout(
+            screen.getDisplayMatching(panel.getBounds()),
+            panel.getBounds(),
+          );
+          panel.setMinimumSize(minWidth, minHeight);
+          if (!panel.isMaximized()) panel.setBounds(bounds);
+        }
         desktopCanvas.refresh();
         createOverlays();
         notch?.render();

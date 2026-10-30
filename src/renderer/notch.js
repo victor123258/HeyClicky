@@ -340,6 +340,7 @@ function renderThread() {
 function fillSettings(data) {
   config = data;
   if (data.canvasStatus) renderCanvasStatus(data.canvasStatus);
+  $("#buddy-size").value = data.buddySize || "small";
   $("#edge-window-mode").value = data.edgeWindowMode || "hidden";
   $("#voice-provider").value = data.voiceProvider || "windows";
   $("#edge-language").value = data.edgeLanguage || "en-US";
@@ -728,6 +729,7 @@ $("#settings-form").onsubmit = task(async (e) => {
       voice: $("#voice-select").value,
       speechLanguage: $("#speech-language").value,
       voiceProvider: $("#voice-provider").value,
+      buddySize: $("#buddy-size").value,
       edgeWindowMode: $("#edge-window-mode").value,
       edgeLanguage: $("#edge-language").value.trim(),
       edgeFallback: $("#edge-fallback").checked,
