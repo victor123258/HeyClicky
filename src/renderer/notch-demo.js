@@ -19,7 +19,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
     edgeLanguage: "en-US",
     edgeFallback: true,
     edgeBackground: false,
-    edgeWindowMode: "minimized",
+    edgeWindowMode: "hidden",
     rate: 0,
     notch: true,
     desktopVisuals: true,

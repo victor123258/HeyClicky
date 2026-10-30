@@ -1049,7 +1049,7 @@ function installIPC() {
     approval: approvalPublic,
     packaged: app.isPackaged,
   }));
-  handle("save-settings", (value, key) => {
+  handle("save-settings", async (value, key) => {
     if (controller || listeningMode || requestRunning)
       throw Error("Stop the current task before changing settings.");
     const { validate } = require("./lib/settings");
@@ -1070,6 +1070,14 @@ function installIPC() {
       notch?.setEnabled(next.notch);
       if (!next.desktopVisuals) desktopCanvas.dismiss();
       edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
+      // Settings are already saved. A window failure is reported separately, not as a failed key/settings save.
+      await edge
+        .applyWindowPreferences(previous)
+        .catch(() =>
+          edge.changed(
+            "Settings saved, but Edge window state could not be verified. Click Hide Edge helper or restore visible setup.",
+          ),
+        );
       emit("edge-status", edge.status());
       if (!next.notch) {
         panel.show();
@@ -1132,7 +1140,7 @@ function installIPC() {
     } catch {}
   });
   handle("edge-status", () => edge.status());
-  handle("edge-background", () => edge.background());
+  handle("edge-background", () => edge.background("hidden"));
   handle("edge-setup", () => {
     if (controller || listeningMode || requestRunning)
       throw Error("Stop the current task before opening Edge setup.");
@@ -1481,8 +1489,12 @@ else {
         native,
         getBackground: () => settings.value.edgeBackground,
         getWindowMode: () => settings.value.edgeWindowMode,
-        onBackground: (allowed) => {
-          settings.save({ ...settings.value, edgeBackground: allowed });
+        onBackground: (allowed, windowMode) => {
+          settings.save({
+            ...settings.value,
+            edgeBackground: allowed,
+            ...(windowMode ? { edgeWindowMode: windowMode } : {}),
+          });
           emit("edge-status", edge.status());
         },
         onStatus: (data) => emit("edge-status", data),

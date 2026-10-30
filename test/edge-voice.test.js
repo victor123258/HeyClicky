@@ -6,13 +6,16 @@ const os = require("node:os");
 const path = require("node:path");
 async function fixture(t) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "edge-voice-"));
-  let background = false;
+  let background = false,
+    windowMode = "hidden";
   const edge = new EdgeVoice({
     userData: dir,
     port: 0,
     getBackground: () => background,
-    onBackground: (v) => {
+    getWindowMode: () => windowMode,
+    onBackground: (v, mode) => {
       background = v;
+      if (mode) windowMode = mode;
     },
   });
   await edge.ensureServer();
@@ -261,4 +264,175 @@ test("Hidden background window is opt-in and visible setup restores it", async (
   await f.edge.openSetup();
   assert.deepEqual(actions, ["hide", "restore"]);
   assert.equal(f.edge.forceVisible, true);
+});
+
+function fakeNative(edge, collect = async () => "1") {
+  const actions = [];
+  edge.native = {
+    launch: (script, args, input) => {
+      assert.equal(script, "edge-window.ps1");
+      assert.equal(input.profile, edge.profile);
+      actions.push(input.action);
+      return input;
+    },
+    collect,
+  };
+  return actions;
+}
+test("Hide helper explicitly replaces a saved minimized preference after approved setup", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  const actions = fakeNative(f.edge);
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved", windowMode: "minimized" });
+  assert.equal(f.edge.status().windowMode, "minimized");
+  await f.edge.background("hidden");
+  assert.equal(f.edge.status().windowMode, "hidden");
+  assert.deepEqual(actions, ["minimize", "hide"]);
+  await f.edge.openSetup();
+  assert.deepEqual(actions, ["minimize", "hide", "restore"]);
+  assert.match(f.edge.status().detail, /restored/);
+});
+test("Hidden setup still needs successful microphone test and rejects invalid modes", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  const actions = fakeNative(f.edge);
+  await assert.rejects(f.edge.background("hidden"), /test.*approve/);
+  await assert.rejects(
+    f.edge.event({ type: "background-approved", windowMode: "hidden" }),
+    /Test the microphone/,
+  );
+  await f.edge.event({ type: "test-success" });
+  await assert.rejects(
+    f.edge.event({ type: "background-approved", windowMode: "arbitrary" }),
+    /Invalid Edge window mode/,
+  );
+  assert.equal(f.edge.status().backgroundAllowed, false);
+  assert.deepEqual(actions, []);
+  await f.edge.event({ type: "background-approved" });
+  assert.deepEqual(actions, ["hide"]);
+});
+test("Failed native verification does not claim the helper window was hidden", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved" });
+  fakeNative(f.edge, async () => "0");
+  await assert.rejects(f.edge.background(), /could not be verified/);
+  assert.match(f.edge.status().detail, /Could not verify/);
+  await f.edge.keepInBackground();
+  assert.match(f.edge.status().detail, /Could not verify/);
+});
+test("Saving a changed window preference applies immediately; disabling background restores setup", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved" });
+  const actions = fakeNative(f.edge);
+  await f.edge.applyWindowPreferences({
+    edgeBackground: true,
+    edgeWindowMode: "minimized",
+  });
+  assert.deepEqual(actions, ["hide"]);
+  await f.edge.onBackground(false);
+  await f.edge.applyWindowPreferences({
+    edgeBackground: true,
+    edgeWindowMode: "hidden",
+  });
+  assert.deepEqual(actions, ["hide", "restore"]);
+  assert.equal(f.edge.forceVisible, true);
+});
+test("A native startup hide cannot finish after and undo explicit setup restore", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved" });
+  let release, started;
+  const ready = new Promise((r) => (started = r));
+  const actions = fakeNative(f.edge, async (input) => {
+    if (input.action === "hide") {
+      started();
+      await new Promise((r) => (release = r));
+    }
+    return "1";
+  });
+  const hide = f.edge.background();
+  await ready;
+  const restore = f.edge.openSetup();
+  release();
+  await Promise.all([hide, restore]);
+  assert.deepEqual(actions, ["hide", "restore"]);
+  assert.equal(f.edge.forceVisible, true);
+  assert.match(f.edge.status().detail, /restored/);
+});
+test("Queued stale hides are skipped once the user restores visible setup", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved" });
+  let release, started;
+  const ready = new Promise((r) => (started = r));
+  let first = true;
+  const actions = fakeNative(f.edge, async () => {
+    if (first) {
+      first = false;
+      started();
+      await new Promise((r) => (release = r));
+    }
+    return "1";
+  });
+  const pending = f.edge.windowAction("restore");
+  await ready;
+  const hide = f.edge.keepInBackground();
+  const show = f.edge.openSetup();
+  release();
+  await Promise.all([pending, hide, show]);
+  assert.deepEqual(actions, ["restore", "restore"]);
+});
+test("Speech ready reasserts approved background mode, but never hides an explicitly restored setup", async (t) => {
+  const f = await fixture(t);
+  f.connect();
+  await f.edge.event({ type: "test-success" });
+  await f.edge.event({ type: "background-approved" });
+  const actions = fakeNative(f.edge);
+  const id = f.listen();
+  await f.edge.event({ type: "ready", id });
+  await f.edge.windowQueue;
+  assert.deepEqual(actions, ["hide"]);
+  f.edge.forceVisible = true;
+  const next = f.listen();
+  await f.edge.event({ type: "ready", id: next });
+  await f.edge.windowQueue;
+  assert.deepEqual(actions, ["hide"]);
+  f.edge.cancel();
+  for (const pending of f.edge.pendingStops.keys())
+    await f.edge.event({ type: "stopped", id: pending });
+});
+
+test("Approved cold launches request hiding before a helper stream connects; cancelled launches do not open Edge", async (t) => {
+  const f = await fixture(t);
+  await f.edge.onBackground(true, "hidden");
+  f.edge.platform = "win32";
+  f.edge.edgePath = () => "dedicated-msedge.exe";
+  const launches = [];
+  const actions = fakeNative(f.edge);
+  f.edge.spawn = (exe, args, options) => {
+    launches.push({ exe, args, options });
+    const child = new (require("node:events").EventEmitter)();
+    child.unref = () => {};
+    return child;
+  };
+  await f.edge.launch(false);
+  assert.equal(launches.length, 0);
+  f.edge.active = {};
+  try {
+    await f.edge.launch(false);
+    await f.edge.windowQueue;
+    assert.equal(launches.length, 1);
+    assert.ok(launches[0].args.includes("--start-minimized"));
+    assert.ok(launches[0].args.includes(`--user-data-dir=${f.edge.profile}`));
+    assert.deepEqual(actions, ["hide"]);
+  } finally {
+    f.edge.active = null;
+  }
 });

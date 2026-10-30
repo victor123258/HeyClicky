@@ -8,7 +8,7 @@ const DEFAULTS = Object.freeze({
   edgeLanguage: "en-US",
   edgeFallback: true,
   edgeBackground: false,
-  edgeWindowMode: "minimized",
+  edgeWindowMode: "hidden",
   notch: true,
   desktopVisuals: true,
   autoExplainVisuals: true,

@@ -1,6 +1,6 @@
 {
   "name": "heyclicky-community",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Independent screen-aware AI buddy for Windows",
   "main": "src/main/index.js",
   "author": "HeyClicky Community contributors",

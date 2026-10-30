@@ -12,7 +12,7 @@ class EdgeVoice {
     userData,
     native,
     getBackground = () => false,
-    getWindowMode = () => "minimized",
+    getWindowMode = () => "hidden",
     onBackground = () => {},
     onStatus = () => {},
     port = 21843,
@@ -43,6 +43,7 @@ class EdgeVoice {
     this.successfulTest = false;
     this.pendingStops = new Map();
     this.helperTouched = false;
+    this.windowQueue = Promise.resolve();
   }
   get connected() {
     return Boolean(
@@ -177,14 +178,7 @@ class EdgeVoice {
         }
       });
       if (this.active && !this.active.started) this.startSession();
-      if (this.getBackground() && !this.forceVisible)
-        this.windowAction(
-          this.getWindowMode() === "hidden" ? "hide" : "minimize",
-        ).catch(() =>
-          this.changed(
-            "Connected, but could not move Edge to the background. Open setup to restore it.",
-          ),
-        );
+      this.keepInBackground();
       return;
     }
     if (req.method === "POST" && req.url === "/event") {
@@ -237,7 +231,10 @@ class EdgeVoice {
     }
     if (event.type === "background-approved") {
       if (!this.successfulTest) throw Error("Test the microphone first.");
-      await this.onBackground(true);
+      const windowMode = event.windowMode ?? "hidden";
+      if (!["hidden", "minimized"].includes(windowMode))
+        throw Error("Invalid Edge window mode.");
+      await this.onBackground(true, windowMode);
       this.forceVisible = false;
       this.send({
         type: "hello",
@@ -258,6 +255,7 @@ class EdgeVoice {
     if (event.type === "ready") {
       if (session.ready) return;
       session.ready = true;
+      this.keepInBackground();
       this.arm(
         session,
         session.finishing ? 12000 : session.mode === "dictate" ? 300000 : 90000,
@@ -336,9 +334,10 @@ class EdgeVoice {
       throw Error(
         "Microsoft Edge was not found. Install Edge or choose Windows speech.",
       );
-    await fsp.mkdir(this.profile, { recursive: true });
     if (!visible && !this.active) return;
     this.forceVisible = visible;
+    await fsp.mkdir(this.profile, { recursive: true });
+    if (!visible && (!this.active || this.forceVisible)) return;
     const args = [
       `--user-data-dir=${this.profile}`,
       "--no-first-run",
@@ -351,6 +350,7 @@ class EdgeVoice {
       stdio: "ignore",
       windowsHide: false,
     });
+    if (!visible) this.keepInBackground();
     child.on("error", () => {
       if (this.active)
         this.fail(Error("Could not launch the Edge voice helper."));
@@ -364,6 +364,9 @@ class EdgeVoice {
     if (this.connected) {
       try {
         await this.windowAction("restore");
+        this.changed(
+          "Edge setup restored. Microphone access and test controls are visible.",
+        );
         return this.status();
       } catch {
         /* Open a fresh visible helper if an old window vanished. */
@@ -375,33 +378,85 @@ class EdgeVoice {
     );
     return this.status();
   }
-  async background() {
+  async background(windowMode) {
     if (!this.getBackground())
       throw Error(
         "Complete the visible microphone test and approve background use first.",
       );
     if (!this.connected)
       throw Error("Open Edge setup to connect the helper first.");
+    if (windowMode !== undefined) {
+      if (!["hidden", "minimized"].includes(windowMode))
+        throw Error("Invalid Edge window mode.");
+      await this.onBackground(true, windowMode);
+    }
     this.forceVisible = false;
     const hidden = this.getWindowMode() === "hidden";
-    await this.windowAction(hidden ? "hide" : "minimize");
-    this.changed(
-      hidden
-        ? "Edge helper window hidden (experimental). Use Open visible Edge setup to restore. Windows microphone indicators stay on during recording."
-        : "Edge helper minimized. Use Open visible Edge setup to restore.",
-    );
+    try {
+      await this.windowAction(hidden ? "hide" : "minimize");
+    } catch (error) {
+      if (!this.forceVisible)
+        this.changed(
+          "Could not verify that Edge moved to the background. Use Hide Edge helper again, or open visible setup.",
+        );
+      throw error;
+    }
+    if (!this.forceVisible)
+      this.changed(
+        hidden
+          ? "Edge helper window hidden (experimental). Use Open visible Edge setup to restore. Windows microphone indicators stay on during recording."
+          : "Edge helper minimized. Use Open visible Edge setup to restore.",
+      );
     return this.status();
   }
-  async windowAction(action) {
-    if (!this.native) return;
-    await this.native.collect(
-      this.native.launch("edge-window.ps1", [], {
-        profile: this.profile,
-        action,
-      }),
-      undefined,
-      15000,
-    );
+  keepInBackground() {
+    if (!this.getBackground() || this.forceVisible) return;
+    return this.windowAction(
+      this.getWindowMode() === "hidden" ? "hide" : "minimize",
+    ).catch(() => {
+      if (!this.forceVisible && this.getBackground())
+        this.changed(
+          "Could not verify that Edge moved to the background. Use Hide Edge helper again, or open visible setup.",
+        );
+    });
+  }
+  async applyWindowPreferences(previous) {
+    if (!this.connected) return;
+    if (
+      this.getBackground() &&
+      (previous.edgeWindowMode !== this.getWindowMode() ||
+        !previous.edgeBackground)
+    )
+      await this.background();
+    else if (previous.edgeBackground && !this.getBackground())
+      await this.openSetup();
+  }
+  windowAction(action) {
+    // Serialize native requests: a late startup hide must never undo explicit setup/restore.
+    const operation = this.windowQueue
+      .catch(() => {})
+      .then(async () => {
+        if (
+          ["hide", "minimize"].includes(action) &&
+          (this.forceVisible || !this.getBackground())
+        )
+          return;
+        if (!this.native) return;
+        const output = await this.native.collect(
+          this.native.launch("edge-window.ps1", [], {
+            profile: this.profile,
+            action,
+          }),
+          undefined,
+          15000,
+        );
+        if (action !== "close" && (!/^\d+$/.test(output) || Number(output) < 1))
+          throw Error(
+            "The dedicated Edge helper window state could not be verified.",
+          );
+      });
+    this.windowQueue = operation;
+    return operation;
   }
   listen(mode, onText, onStatus, onError, onEnd, language, options = {}) {
     this.cancel();
@@ -504,6 +559,7 @@ class EdgeVoice {
     this.abortSession(s);
   }
   async dispose({ deleteProfile = false } = {}) {
+    this.forceVisible = true; // Invalidate queued automatic hides before shutdown/close.
     this.cancel();
     this.successfulTest = false;
     clearInterval(this.watchdog);
