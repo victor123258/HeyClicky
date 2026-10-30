@@ -1,13 +1,585 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'"><link rel="stylesheet" href="notch.css"><title>HeyClicky notch</title></head>
-<body>
-<section id="notch" aria-label="HeyClicky quick controls">
-  <header><button id="expand" aria-expanded="false" title="Expand quick controls"><span class="mini-buddy">↖</span><span id="status">Hey, I'm here</span><span class="signal" aria-hidden="true"><i></i><i></i><i></i><i></i></span></button><button id="quick-talk" title="Start voice input" aria-label="Start voice input">♩</button></header>
-  <div id="details" hidden>
-    <div class="detail-heading"><span id="mode-label">YOUR DESKTOP PLUS ONE</span><button id="collapse" title="Collapse" aria-label="Collapse notch">⌃</button></div>
-    <p id="preview" role="status" aria-live="polite">Ask about your screen, or let me lend a hand.</p>
-    <div class="actions"><button data-action="talk"><span>♩</span>Talk</button><button data-action="agent"><span>✦</span>Agent</button><button data-action="dictate"><span>⌨</span>Dictate</button><button id="stop" data-action="stop" hidden><span>■</span>Stop</button><button data-action="panel" title="Open conversation"><span>↗</span>Chat</button></div>
-    <footer><span id="hint">Speak after “Listening” appears</span><button data-action="settings" title="Open settings">Settings ↗</button></footer>
-  </div>
-</section><script src="notch.js"></script>
-</body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-src 'none'"
+    />
+    <link rel="stylesheet" href="notch.css" />
+    <title>HeyClicky · your desktop plus one</title>
+  </head>
+  <body>
+    <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <path d="m3 10 9-7 9 7v10H4V10m5 10v-7h6v7" />
+        </symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24">
+          <path
+            d="M20 11a8 8 0 0 1-8 8H4l-2 3V11a9 9 0 0 1 18 0ZM7 9h8m-8 4h5"
+          />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <path
+            d="m9 3-1 3-3 1-1 3 2 2-1 3 2 3 3-1 2 3h3l1-3 3-1 1-3-2-2 1-3-2-3-3 1-2-3Z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="i-mic" viewBox="0 0 24 24">
+          <rect x="9" y="2" width="6" height="13" rx="3" />
+          <path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8" />
+        </symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24">
+          <path d="M5 19 19 5M5 5h14v14" />
+        </symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24">
+          <path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Zm8-1v4m-2-2h4" />
+        </symbol>
+        <symbol id="i-screen" viewBox="0 0 24 24">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <path d="M8 22h8m-4-5v5" />
+        </symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24">
+          <rect x="6" y="6" width="12" height="12" rx="2" />
+        </symbol>
+        <symbol id="i-down" viewBox="0 0 24 24">
+          <path d="m6 9 6 6 6-6" />
+        </symbol>
+        <symbol id="i-send" viewBox="0 0 24 24">
+          <path d="M12 20V4m-6 6 6-6 6 6" />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="m4 12 5 5L20 6" />
+        </symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24">
+          <path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6Zm-4 10 3 3 5-6" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M12 4v16M4 12h16" />
+        </symbol>
+        <symbol id="i-back" viewBox="0 0 24 24">
+          <path d="m10 5-7 7 7 7M3 12h18" />
+        </symbol>
+        <symbol id="i-keyboard" viewBox="0 0 24 24">
+          <rect x="2" y="5" width="20" height="14" rx="2" />
+          <path d="M6 9h1m4 0h1m4 0h1M6 13h1m4 0h1m4 0h1m-8 3h7" />
+        </symbol>
+      </defs>
+    </svg>
+    <div class="browser-heading" hidden>
+      <span>heyclicky <b>community</b></span>
+      <p>A desktop buddy. Not another dashboard.</p>
+      <small
+        >INTERACTIVE UI PREVIEW · no screen, microphone, or AI access</small
+      >
+    </div>
+    <section id="notch" data-layout="collapsed" aria-label="HeyClicky">
+      <header class="notch-bar">
+        <button id="expand" title="Open Home" aria-expanded="false">
+          <svg class="cursor-mark" viewBox="0 0 36 40" aria-hidden="true">
+            <path d="M5 3 31 25 19 27 15 38Z" />
+            <path class="eyes" d="m13 16 1 3m4 0 1 3" /></svg
+          ><span class="wordmark">heyclicky <small>community</small></span
+          ><span id="status">Here when you need me</span>
+        </button>
+        <div class="wave" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <button
+          id="quick-talk"
+          class="bar-button"
+          title="Tap to start or stop voice"
+        >
+          <svg><use href="#i-mic" /></svg></button
+        ><button id="collapse" class="bar-button" aria-label="Collapse notch">
+          <svg><use href="#i-down" /></svg>
+        </button>
+      </header>
+      <section id="peek" hidden>
+        <div class="peek-top">
+          <span>YOUR DESKTOP PLUS ONE</span
+          ><button id="peek-settings" title="Settings">
+            <svg><use href="#i-settings" /></svg>
+          </button>
+        </div>
+        <p id="preview">A little help, right where you are.</p>
+        <div id="peek-jobs"></div>
+        <button id="open-home" class="peek-open">
+          Open your workspace <svg><use href="#i-arrow" /></svg>
+        </button>
+        <div class="peek-foot">
+          <span id="peek-hint">Hold your voice shortcut to talk</span
+          ><button data-action="stop" class="peek-stop" hidden>Stop</button>
+        </div>
+      </section>
+      <div id="workspace" hidden>
+        <nav class="tabs" aria-label="Notch navigation">
+          <div>
+            <button data-route="home" class="active">
+              <svg><use href="#i-home" /></svg>Home</button
+            ><button data-route="chat">
+              <svg><use href="#i-chat" /></svg>Chat
+              <span id="chat-count">0</span>
+            </button>
+          </div>
+          <button data-route="settings">
+            <svg><use href="#i-settings" /></svg>Settings
+          </button>
+        </nav>
+        <main class="surface">
+          <div id="notice" role="alert" hidden></div>
+          <section id="route-home" class="page home-page">
+            <div class="home-heading">
+              <span class="eyebrow"><i></i> YOUR DESKTOP, A LITTLE LIGHTER</span
+              ><button
+                id="new-chat"
+                class="round-button"
+                title="New conversation"
+              >
+                <svg><use href="#i-plus" /></svg>
+              </button>
+            </div>
+            <div class="hero">
+              <div>
+                <h1>Big ideas.<br /><span>Little buddy.</span></h1>
+                <p>
+                  Talk it through. Learn something new.<br />Hand off the things
+                  slowing you down.
+                </p>
+              </div>
+              <div class="buddy-art">
+                <span class="orbit"></span
+                ><svg viewBox="0 0 120 130" aria-hidden="true">
+                  <path class="cursor-body" d="m25 10 78 68-36 5-15 38Z" />
+                  <path class="cursor-eyes" d="m49 53 2 9m15 0 2 9" />
+                  <path
+                    class="twinkle"
+                    d="m97 16 3 8 9 3-9 3-3 8-3-8-8-3 8-3Z"
+                  /></svg
+                ><span class="hello-label">oh, hey you.</span>
+              </div>
+            </div>
+            <div id="connect-card" class="connect-card" hidden>
+              <svg><use href="#i-spark" /></svg>
+              <div>
+                <strong>Meet your new plus one</strong>
+                <p>Connect your OpenRouter key to get started.</p>
+              </div>
+              <button id="connect-settings">
+                Let's set up <svg><use href="#i-arrow" /></svg>
+              </button>
+            </div>
+            <div class="starter-grid">
+              <button data-starter="guide">
+                <span class="starter-icon peach"
+                  ><svg><use href="#i-screen" /></svg></span
+                ><strong>Show me how</strong
+                ><span>A little guidance on your screen.</span
+                ><svg class="corner-arrow"><use href="#i-arrow" /></svg></button
+              ><button data-starter="agent">
+                <span class="starter-icon lilac"
+                  ><svg><use href="#i-spark" /></svg></span
+                ><strong>Take it from here</strong
+                ><span>A task for your extra pair of hands.</span
+                ><svg class="corner-arrow"><use href="#i-arrow" /></svg>
+              </button>
+            </div>
+            <div class="section-label">
+              <span>YOUR TASKS <b id="task-count">0</b></span
+              ><small>One desktop. One task at a time.</small>
+            </div>
+            <div id="jobs" class="jobs">
+              <div class="empty-jobs">
+                <span class="empty-orbit"
+                  ><svg><use href="#i-check" /></svg
+                ></span>
+                <div>
+                  <strong>A little room to breathe.</strong>
+                  <p>Your tasks will land here. Start one below.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+          <section id="route-chat" class="page chat-page" hidden>
+            <div class="chat-heading">
+              <button id="all-chat" class="back-button">
+                <svg><use href="#i-back" /></svg>
+              </button>
+              <div>
+                <h2 id="thread-title">A conversation with Clicky</h2>
+                <p id="thread-hint">
+                  Your screen is context. You’re in control.
+                </p>
+              </div>
+              <button
+                id="clear-chat"
+                class="quiet-button"
+                title="Clear session"
+              >
+                Clear
+              </button>
+            </div>
+            <div id="thread" aria-live="polite"></div>
+            <div id="task-steps" hidden></div>
+          </section>
+          <section id="route-settings" class="page settings-page" hidden>
+            <div class="settings-heading">
+              <span class="eyebrow">MAKE YOURSELF AT HOME</span>
+              <h1>Your buddy, your way.</h1>
+              <p>One key. Your model. No subscription to this app.</p>
+            </div>
+            <form id="settings-form">
+              <fieldset>
+                <legend>
+                  <svg><use href="#i-spark" /></svg>AI connection
+                  <span id="key-status">Not connected</span>
+                </legend>
+                <label for="api-key">OpenRouter API key</label>
+                <div class="input-action">
+                  <input
+                    id="api-key"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="sk-or-v1-…"
+                  /><button type="button" id="get-key" class="outline-button">
+                    Get a key ↗
+                  </button>
+                </div>
+                <small
+                  >Encrypted with Windows DPAPI. Leave blank to keep a saved
+                  key.</small
+                ><label for="model">Model</label
+                ><input id="model" required spellcheck="false" /><small
+                  >Choose an OpenRouter model with vision and tool
+                  support.</small
+                ><button
+                  type="button"
+                  id="test-key"
+                  class="outline-button test-button"
+                >
+                  Test saved connection
+                </button>
+                <p id="connection-result" role="status"></p>
+              </fieldset>
+              <fieldset>
+                <legend>
+                  <svg><use href="#i-mic" /></svg>Voice & listening
+                </legend>
+                <label for="voice-provider">Voice input provider</label>
+                <select id="voice-provider">
+                  <option value="windows">Windows speech · local</option>
+                  <option value="edge">
+                    Microsoft Edge · online, experimental
+                  </option>
+                </select>
+                <div id="edge-options" class="edge-options" hidden>
+                  <strong>A real Edge helper—not hidden Electron speech</strong>
+                  <p>
+                    First setup opens a visible dedicated Edge window for
+                    microphone permission and a test. You can then explicitly
+                    enable minimized background launches. Audio may go to
+                    Microsoft’s online speech service. Permission, language
+                    support and background operation are not guaranteed. No
+                    separate speech API key is required.
+                  </p>
+                  <label for="edge-language">Edge input language</label
+                  ><input
+                    id="edge-language"
+                    value="en-US"
+                    maxlength="40"
+                    placeholder="en-US or bn-BD"
+                  />
+                  <small
+                    >Edge languages do not require a Windows recognition pack.
+                    Availability depends on Edge and its online service.</small
+                  >
+                  <label class="setting-switch"
+                    ><span
+                      ><strong>Fall back to Windows speech</strong
+                      ><small
+                        >If Edge fails before finalization, switch locally and
+                        ask you to repeat. No replay of released turns or typed
+                        dictation.</small
+                      ></span
+                    ><input id="edge-fallback" type="checkbox" checked
+                  /></label>
+                  <div class="button-row">
+                    <button
+                      id="edge-setup"
+                      class="outline-button"
+                      type="button"
+                    >
+                      Open visible Edge setup ↗</button
+                    ><button id="edge-close" class="quiet-button" type="button">
+                      Close helper
+                    </button>
+                  </div>
+                  <p id="edge-status" role="status">
+                    Helper not connected. Save your provider preference before
+                    using the notch microphone.
+                  </p>
+                  <button
+                    id="edge-disable"
+                    type="button"
+                    class="quiet-button"
+                    hidden
+                  >
+                    Disable automatic minimized launches
+                  </button>
+                </div>
+                <label for="speech-language"
+                  >Windows recognition / fallback language</label
+                >
+                <div class="input-action">
+                  <select id="speech-language">
+                    <option value="">
+                      Automatic · installed language
+                    </option></select
+                  ><button
+                    type="button"
+                    id="find-languages"
+                    class="outline-button"
+                  >
+                    Find languages
+                  </button>
+                </div>
+                <small
+                  >Speech recognition packs are separate from speaking
+                  voices.</small
+                >
+                <div class="button-row">
+                  <button type="button" id="voice-test" class="outline-button">
+                    Test microphone</button
+                  ><button
+                    type="button"
+                    id="settings-stop"
+                    class="quiet-button"
+                  >
+                    Stop
+                  </button>
+                </div>
+                <p id="mic-result" role="status">
+                  Test saved provider. No AI key, screenshots or typing. Edge
+                  recognition is online.
+                </p>
+                <div class="audio-links">
+                  <button type="button" data-audio="microphone">
+                    Microphone permissions ↗</button
+                  ><button type="button" data-audio="sound">
+                    Input device ↗</button
+                  ><button type="button" data-audio="speech">
+                    Speech settings ↗
+                  </button>
+                </div>
+                <label for="voice-select">Speaking voice</label>
+                <div class="input-action">
+                  <select id="voice-select">
+                    <option value="">Windows default</option></select
+                  ><button
+                    type="button"
+                    id="find-voices"
+                    class="outline-button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <label for="rate"
+                  >Speaking speed <output id="rate-value">0</output></label
+                ><input
+                  id="rate"
+                  type="range"
+                  min="-5"
+                  max="5"
+                  value="0"
+                /><label class="setting-switch"
+                  ><span
+                    ><strong>Speak answers aloud</strong
+                    ><small>Built-in Windows voices.</small></span
+                  ><input id="speak" type="checkbox" /></label
+                ><label class="setting-switch"
+                  ><span
+                    ><strong>On-screen captions</strong
+                    ><small
+                      >A readable answer card, without opening Chat.</small
+                    ></span
+                  ><input id="captions" type="checkbox"
+                /></label>
+              </fieldset>
+              <fieldset>
+                <legend>
+                  <svg><use href="#i-shield" /></svg>Your desktop. Your call.
+                </legend>
+                <label class="setting-switch"
+                  ><span
+                    ><strong>Screen context</strong
+                    ><small
+                      >Capture the selected display only when you ask.</small
+                    ></span
+                  ><input id="screen-setting" type="checkbox" /></label
+                ><label class="setting-switch"
+                  ><span
+                    ><strong>Ask before desktop actions</strong
+                    ><small
+                      >Commands, files and external URLs always ask.</small
+                    ></span
+                  ><input id="ask-before" type="checkbox"
+                /></label>
+                <p id="safety-warning" hidden>
+                  Off: agents can click and type without asking. Keep this on
+                  unless you fully trust the task.
+                </p>
+                <label class="setting-switch"
+                  ><span
+                    ><strong>Floating cursor buddy</strong
+                    ><small>A companion that points the way.</small></span
+                  ><input id="buddy" type="checkbox" /></label
+                ><label class="setting-switch"
+                  ><span
+                    ><strong>Notch interface</strong
+                    ><small>Off opens the fallback desktop panel.</small></span
+                  ><input id="notch-enabled" type="checkbox" /></label
+                ><label class="setting-switch"
+                  ><span
+                    ><strong>Start with Windows</strong
+                    ><small>Ready when you are.</small></span
+                  ><input id="start-windows" type="checkbox"
+                /></label>
+              </fieldset>
+              <fieldset>
+                <legend>
+                  <svg><use href="#i-keyboard" /></svg>Shortcuts
+                </legend>
+                <p class="shortcut-help">
+                  Hold Talk or Agent, speak after Listening, then release to
+                  send. A short tap cancels. The on-screen hold button works
+                  too.
+                </p>
+                <div id="hotkeys"></div>
+              </fieldset>
+              <div class="save-row">
+                <span id="save-result" role="status"></span
+                ><button class="primary-button" type="submit">
+                  Save settings <svg><use href="#i-check" /></svg>
+                </button>
+              </div>
+            </form>
+            <div class="privacy-note">
+              <svg><use href="#i-shield" /></svg>
+              <p>
+                Your requests go directly to OpenRouter and your model provider.
+                Conversation and task history are session-only.
+                <button id="privacy-link">Review provider privacy ↗</button>
+              </p>
+            </div>
+            <div class="danger-row">
+              <span>Want a clean slate?</span
+              ><button id="delete-data">Delete local data & quit</button>
+            </div>
+            <p class="edition-note">
+              Independent community edition · not affiliated with HeyClicky.<br /><button
+                id="github-link"
+              >
+                Source & documentation ↗
+              </button>
+            </p>
+          </section>
+        </main>
+        <section
+          id="approval-card"
+          class="approval-card"
+          role="alertdialog"
+          aria-label="Review action"
+          hidden
+        >
+          <div class="approval-top">
+            <svg><use href="#i-shield" /></svg>
+            <div>
+              <strong>Your permission, first.</strong
+              ><span>One action only · expires in two minutes</span>
+            </div>
+          </div>
+          <strong id="approval-name"></strong>
+          <pre id="approval-args" tabindex="0"></pre>
+          <p>
+            Review every argument. Approved file/command output may be sent to
+            your model. Desktop input goes to the window behind this notch.
+          </p>
+          <div class="approval-buttons">
+            <button id="deny" class="outline-button">Deny & stop task</button
+            ><button id="allow" class="primary-button">
+              Allow this action
+            </button>
+          </div>
+        </section>
+        <div id="composer-area" class="composer-area">
+          <div class="context-line">
+            <button id="screen-toggle" aria-pressed="true">
+              <svg><use href="#i-screen" /></svg><span>Screen context on</span
+              ><i></i></button
+            ><span id="context-hint">Captured when you send</span
+            ><button id="new-task" title="New task">
+              <svg><use href="#i-plus" /></svg>
+            </button>
+          </div>
+          <form id="composer">
+            <textarea
+              id="prompt"
+              rows="2"
+              maxlength="12000"
+              placeholder="What's on your mind?"
+              aria-label="Your message"
+            ></textarea>
+            <div class="composer-actions">
+              <div class="mode-switch" aria-label="Request mode">
+                <button type="button" data-mode="talk" class="selected">
+                  Talk</button
+                ><button type="button" data-mode="agent">Agent</button>
+              </div>
+              <span class="enter-hint">Enter ↵</span
+              ><button type="submit" id="send" aria-label="Send message">
+                <svg><use href="#i-send" /></svg>
+              </button>
+            </div>
+          </form>
+          <div class="voice-line">
+            <button id="hold-talk" aria-label="Hold to talk" type="button">
+              <svg><use href="#i-mic" /></svg><span>Hold to talk</span
+              ><span class="hold-wave" aria-hidden="true"
+                ><i></i><i></i><i></i><i></i><i></i
+              ></span></button
+            ><button id="dictate" title="Type speech into the active app">
+              <svg><use href="#i-keyboard" /></svg>Dictate</button
+            ><button id="stop" class="stop-button" hidden>
+              <svg><use href="#i-stop" /></svg>Stop</button
+            ><span id="voice-hint"
+              >or hold <kbd id="talk-shortcut">Ctrl Shift Space</kbd></span
+            >
+          </div>
+          <div
+            id="voice-transcript"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></div>
+        </div>
+        <footer class="app-footer">
+          <span
+            ><i></i>
+            <span id="input-provider">Input: Windows (local)</span></span
+          ><span id="model-label">OpenRouter</span>
+        </footer>
+      </div>
+    </section>
+    <div class="browser-controls" hidden>
+      <button data-preview="collapsed">Idle notch</button
+      ><button data-preview="peek">Quick peek</button
+      ><button data-preview="expanded">Full workspace</button
+      ><button id="demo-tasks">Load sample tasks</button
+      ><a href="index.html">Legacy panel ↗</a>
+    </div>
+    <script src="notch-demo.js"></script>
+    <script src="notch.js"></script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HeyClicky voice helper</title>
+    <link rel="stylesheet" href="voice.css" />
+  </head>
+  <body>
+    <main>
+      <span class="eyebrow">HEYCLICKY COMMUNITY · OPTIONAL EDGE INPUT</span>
+      <h1>A voice for your<br />little buddy.</h1>
+      <p class="intro">
+        This dedicated Edge window provides speech recognition for your desktop
+        app. It is not a hidden service.
+      </p>
+      <div id="connection" role="status">Connecting to the desktop app…</div>
+      <section>
+        <h2>1. Allow & test your microphone</h2>
+        <p>
+          Click below, allow microphone access if asked, and say a short
+          sentence. Recognition needs internet and may send audio to Microsoft’s
+          online speech service. No OpenRouter key is used here.
+        </p>
+        <label for="language">Test language (BCP 47)</label
+        ><input id="language" value="en-US" maxlength="40" /><button id="test">
+          Allow microphone & test Edge speech</button
+        ><button id="stop" class="secondary" hidden>Stop microphone</button>
+        <p id="status" role="status">Microphone is off.</p>
+        <div id="transcript" aria-live="polite"></div>
+      </section>
+      <section>
+        <h2>2. Choose background use</h2>
+        <p>
+          After a successful test, you can let HeyClicky launch this dedicated
+          helper minimized. Edge remains running. Its microphone indicators stay
+          intact. Permission can be remembered for this address and profile, but
+          browser updates, cleared settings or suspension may require setup
+          again.
+        </p>
+        <label class="consent"
+          ><input type="checkbox" id="consent" /> I understand that this uses
+          online Edge speech, may need permission again, and is not guaranteed
+          to work headlessly.</label
+        ><button id="background" disabled>
+          Enable background use & minimize</button
+        ><small id="background-status"
+          >Test recognition successfully before enabling background use.</small
+        >
+      </section>
+      <footer>
+        Only the private HeyClicky Edge profile is used—not your normal browsing
+        profile. Close this window to disconnect Edge input. The desktop app can
+        fall back to Windows speech. Recording is controlled by your voice
+        gestures and Stop.
+      </footer>
+    </main>
+    <script src="voice.js"></script>
+  </body>
+</html>

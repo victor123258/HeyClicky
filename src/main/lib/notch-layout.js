@@ -1,7 +1,19 @@
-function notchBounds(display, expanded) {
+function notchBounds(display, mode = "collapsed") {
+  if (typeof mode === "boolean") mode = mode ? "expanded" : "collapsed";
   const area = display.workArea || display.bounds;
-  const width = Math.min(expanded ? 408 : 228, area.width);
-  const height = Math.min(expanded ? 216 : 44, area.height);
-  return { x: Math.round(area.x + (area.width - width) / 2), y: area.y, width, height };
+  const sizes = {
+    collapsed: [232, 40],
+    peek: [432, 300],
+    expanded: [640, 760],
+  };
+  const [w, h] = sizes[mode] || sizes.collapsed;
+  const width = Math.min(w, area.width),
+    height = Math.min(h, area.height);
+  return {
+    x: Math.round(area.x + (area.width - width) / 2),
+    y: area.y,
+    width,
+    height,
+  };
 }
 module.exports = { notchBounds };

@@ -1,0 +1,144 @@
+:root {
+  font-family: "Segoe UI", sans-serif;
+  color: #38432e;
+  background: #f0f3e9;
+  font-size: 13px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 620px;
+  padding: 38px 28px;
+  margin: auto;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 1.6px;
+  color: #91a17d;
+}
+h1 {
+  font-size: 38px;
+  letter-spacing: -1.4px;
+  line-height: 1.13;
+  font-weight: 600;
+  margin: 22px 0;
+}
+.intro {
+  color: #8c997b;
+  line-height: 1.8;
+}
+#connection {
+  padding: 12px 15px;
+  background: #e5ecd8;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 22px 0;
+}
+section {
+  background: #fff;
+  border: 1px solid #dee6d0;
+  padding: 22px;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+h2 {
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+p,
+footer {
+  font-size: 12px;
+  line-height: 1.85;
+  color: #8d997d;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  display: block;
+  width: 100%;
+  border: 1px solid #c5d9ab;
+  border-radius: 7px;
+  padding: 11px;
+  background: #deedc8;
+  color: #748d53;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 13px;
+}
+button.secondary {
+  background: #f8f0ed;
+  color: #b09185;
+  border-color: #eadbd4;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #99b674;
+  outline-offset: 3px;
+}
+input:not([type="checkbox"]) {
+  display: block;
+  width: 100%;
+  border: 1px solid #dfe6d4;
+  border-radius: 6px;
+  padding: 9px;
+  margin-top: 7px;
+  color: #7d8f6b;
+  background: #fbfcf9;
+}
+label {
+  font-size: 11px;
+  color: #99a389;
+}
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.8;
+  margin-top: 15px;
+}
+.consent input {
+  margin-top: 4px;
+  accent-color: #91ac70;
+}
+small {
+  display: block;
+  font-size: 10px;
+  color: #a6b295;
+  line-height: 1.8;
+  margin-top: 12px;
+}
+#transcript {
+  font-size: 13px;
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #8d769e;
+  overflow-wrap: anywhere;
+  max-height: 180px;
+  overflow: auto;
+}
+#status {
+  font-size: 11px;
+  color: #9b88ae;
+}
+.recording #status {
+  color: #9c6786;
+  font-weight: 600;
+}
+footer {
+  font-size: 10px;
+  margin-top: 24px;
+}
+[hidden] {
+  display: none !important;
+}

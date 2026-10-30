@@ -9,11 +9,11 @@ function kill(child) {
   if (process.platform === 'win32') spawn('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => child.kill());
   else child.kill('SIGKILL');
 }
-function launch(name, args = [], input) {
+function launch(name, args = [], input, { keepStdin = false } = {}) {
   if (process.platform !== 'win32') throw Error('This feature requires Windows 10 or 11.');
   const child = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath(name), ...args], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   child.stdin.on('error', () => {});
-  child.stdin.end(input ? JSON.stringify(input) : '');
+  if (!keepStdin) child.stdin.end(input ? JSON.stringify(input) : '');
   return child;
 }
 function collect(child, signal, timeout = 30000) {

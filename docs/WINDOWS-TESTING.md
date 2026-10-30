@@ -51,3 +51,28 @@ These require an actual Windows desktop. Do not mark them complete based on unit
 - [ ] Disable desktop microphone permission or unplug/change default input, then Test microphone. Error is actionable and the UI returns to idle.
 - [ ] Speak non-ASCII words with a compatible language, pause, verify the exact transcript and one AI submission only after microphone closure.
 - [ ] Cancel, then quickly restart a voice turn; stale transcripts/exit events cannot submit the prior request. A failed startup or silent turn cannot leave the app indefinitely in Starting/Listening.
+
+## Notch-centered workspace and hold-to-talk (1.3.0)
+- [ ] Verify Home, complete Settings, Chat, queued task cards, follow-ups and exact-argument approvals work entirely inside the notch. Reload the renderer during approval; it must recover the same pending ID/arguments, not auto-approve.
+- [ ] Hover opens only a quick peek without taking focus; explicit navigation enables typing. Collapse changes native bounds to 232×40, peek to 432×300, expanded to 640×760 (clamped to work area).
+- [ ] Test global Talk/Agent hold shortcuts, including pauses longer than a phrase while holding. Only release submits. Test release of each modifier/key, quick taps, repeated keys, release before mic readiness, lock/sleep and stopped key helper.
+- [ ] Hold the on-screen mic with mouse, touch and keyboard. Release outside the button, cancel pointer capture or blur the window: cancel/no duplicate submissions. Use a supported installed language and test non-ASCII partial/final transcripts.
+- [ ] Compare waveform to actual microphone input; silence must not show a fabricated animated signal. No API request happens from partial transcripts.
+- [ ] Queue two desktop tasks: one runs while the other waits. Cancel the queued task; stop the current task during a command, approval and speech. Global Stop must cancel queued work too. Follow-ups reuse only that task's text context.
+- [ ] With the workspace collapsed, confirm task progress remains in the peek, captions remain on the correct display, and numbered teaching cards are readable and click-through. Toggle captions off.
+- [ ] Confirm no-notch fallback remains usable; quit old app before trying a new portable build. Installer upgrade retains encrypted key/settings.
+
+
+## Optional actual-Edge input (1.4.0) — manual acceptance, NOT verified by CI
+
+- [ ] With Windows provider/default preferences, no Edge window or online speech launches. Existing Windows input, dictation, output speech and held shortcuts still work.
+- [ ] Choose Edge in Settings; open visible setup with no AI key. Confirm dedicated profile, stable `127.0.0.1:21843`, permission prompt, real transcript and no AI request. Deny permission: actionable error, microphone off, no enabled background button.
+- [ ] A successful visible test alone does not enable automatic minimized launch; explicit checkbox + button is required. Reopening setup restores a minimized helper. No personal Edge window is minimized/closed, even with another profile whose directory has an `edge-voice-profile-other` suffix.
+- [ ] Save Edge/language/fallback; confirm source and status. Test `en-US` and desired language separately (e.g. `bn-BD`, if service supports it). Windows output voice is independent. No Windows recognizer is required for Edge-only input.
+- [ ] Quit/relaunch; after approved consent, voice gesture launches dedicated Edge minimized. Keep Windows/Edge microphone indicators. Do not claim invisible/headless or always-on reliability. Re-test after lock/sleep, Edge update and permission reset.
+- [ ] Hold Talk/Agent through pauses; release sends exactly one turn; early release/cancel sends none. Stop during startup, recognition, finalization and dictation makes microphone indicator stop; no late AI requests or typed chunks. Helper Stop and window close release the turn.
+- [ ] Break internet/revoke site permission/close or suspend helper: if fallback enabled before release, show repeat notice, transition Starting → Listening with Windows source and no duplicate request. Missing Windows recognizer or synchronous launch failure returns idle with error. Disabled fallback fails cleanly. No fallback after released hold or already typed dictation.
+- [ ] Close helper/disable minimized launches and verify documented difference. Restart/quit closes only dedicated helper. Port conflict fails with setup advice. A new helper connection aborts the old recording. No indefinite Starting state.
+- [ ] Delete local data removes dedicated profile/remembered permission plus key/settings. Locked profile reports retry without claiming everything was deleted. Personal Edge profile stays untouched. Remote Microsoft/OpenRouter records are not deleted.
+
+CI tests protocol/authentication, DOM consent, source/settings, cancellation and fallback with mocks; it compiles the Edge-window controller without manipulating a real window. It does **not** verify installed Edge Web Speech service behavior, remembered permissions, actual audio quality, Microsoft retention, minimized recognition, or physical microphone disposal.
