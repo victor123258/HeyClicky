@@ -13,9 +13,31 @@ class SettingsUpdater {
   }) {
     Object.assign(this, { settings, registerHotkeys, canSave, effects });
     this.tail = Promise.resolve();
+    this.accepting = true;
+  }
+  freeze() {
+    this.accepting = false;
+  }
+  resume() {
+    this.accepting = true;
+  }
+  whenIdle() {
+    return this.tail.catch(() => {});
   }
   enqueue(fn) {
-    const operation = this.tail.catch(() => {}).then(fn);
+    if (!this.accepting)
+      return Promise.reject(
+        Error(
+          "Settings are closing; wait for data deletion or restart the app.",
+        ),
+      );
+    const operation = this.tail
+      .catch(() => {})
+      .then(() => {
+        if (!this.accepting)
+          throw Error("Settings are closing; update was not saved.");
+        return fn();
+      });
     this.tail = operation;
     return operation;
   }

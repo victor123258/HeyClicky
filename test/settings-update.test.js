@@ -257,3 +257,50 @@ test("post-commit refresh setup failure is a warning too, never a hotkey rollbac
   assert.equal(f.disk().hotkeys.talk, "Ctrl+Alt+T");
   assert.match(saved.saveWarnings[0], /refresh failed/);
 });
+
+test("delete/quit freeze rejects queued/new writes and drains committed effects before data removal", async (t) => {
+  let started, release;
+  const ready = new Promise((r) => (started = r));
+  const f = fixture(t, {
+    effects: () => [
+      {
+        warning: "refresh failure",
+        run: async () => {
+          started();
+          await new Promise((r) => (release = r));
+        },
+      },
+    ],
+  });
+  const first = f.updater.save({
+    ...f.settings.value,
+    model: "openai/gpt-4.1",
+  });
+  await ready;
+  const second = assert.rejects(
+    f.updater.save(
+      { ...f.settings.value, model: "openai/gpt-4.1-mini" },
+      "do-not-restore-key",
+    ),
+    /closing/,
+  );
+  const helper = assert.rejects(
+    f.updater.updateEdge(true, "hidden"),
+    /closing/,
+  );
+  f.updater.freeze();
+  await assert.rejects(f.updater.patch({ screenContext: false }), /closing/);
+  release();
+  await first;
+  await Promise.all([second, helper, f.updater.whenIdle()]);
+  f.settings.delete();
+  assert.equal(fs.existsSync(f.settings.file), false);
+  assert.equal(f.settings.key, "");
+  // A failed deletion can unfreeze; no rejected stale write is replayed.
+  f.updater.resume();
+  f.updater.effects = () => [];
+  await f.updater.patch({ screenContext: false });
+  assert.equal(f.settings.value.screenContext, false);
+  assert.equal(f.settings.value.edgeBackground, false);
+  assert.equal(f.settings.key, "");
+});

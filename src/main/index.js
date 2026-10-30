@@ -1240,23 +1240,31 @@ function installIPC() {
       },
     );
     if (result.response !== 1) return false;
-    stop();
-    history = [];
-    app.setLoginItemSettings({ openAtLogin: false });
+    settingsUpdater.freeze();
     try {
-      await edge.dispose({ deleteProfile: true });
-    } catch {
-      throw Error(
-        "Could not remove the dedicated Edge profile. Close only its helper window and retry Delete local data. Your saved key/settings have not been deleted yet.",
-      );
+      // Finish an already committed refresh, but reject queued/new writes so
+      // an old UI request cannot restore settings/key after deletion.
+      await settingsUpdater.whenIdle();
+      stop();
+      history = [];
+      app.setLoginItemSettings({ openAtLogin: false });
+      try {
+        await edge.dispose({ deleteProfile: true });
+      } catch {
+        throw Error(
+          "Could not remove the dedicated Edge profile. Close only its helper window and retry Delete local data. Your saved key/settings have not been deleted yet.",
+        );
+      }
+      settings.delete();
+      edgeClosing = true;
+      await session.defaultSession.clearStorageData();
+      await session.defaultSession.clearCache();
+      quitting = true;
+      app.quit();
+      return true;
+    } finally {
+      if (!quitting) settingsUpdater.resume();
     }
-    settings.delete();
-    edgeClosing = true;
-    await session.defaultSession.clearStorageData();
-    await session.defaultSession.clearCache();
-    quitting = true;
-    app.quit();
-    return true;
   });
   handle("open-link", (name) => {
     const links = {
@@ -1658,6 +1666,7 @@ else {
     });
   app.on("before-quit", (event) => {
     quitting = true;
+    settingsUpdater?.freeze();
     keys?.stop();
     stop();
     globalShortcut.unregisterAll();
@@ -1665,8 +1674,10 @@ else {
     if (edge && !edgeClosing) {
       event.preventDefault();
       edgeClosing = true;
-      edge
-        .dispose()
+      (async () => {
+        await settingsUpdater?.whenIdle();
+        await edge.dispose();
+      })()
         .catch(() =>
           dialog.showErrorBox(
             "Edge helper may still be open",
