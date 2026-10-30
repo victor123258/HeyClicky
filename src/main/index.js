@@ -185,7 +185,7 @@ function installIPC() {
   });
   handle('test-key', async () => { await complete({ key: settings.key, model: settings.value.model, messages: [{ role: 'user', content: 'Reply with OK.' }] }); return 'Connected. Text request succeeded; screen mode also needs image and tool support.'; });
   handle('voices', () => speech.voices());
-  handle('ask', (text, mode) => { if (controller || listeningMode) throw Error('A task is already running.'); ask(text, mode).catch(error); });
+  handle('ask', (text, mode) => { if (controller || listeningMode) throw Error('A task is already running.'); ask(text, mode).catch(e => { if (!controller) setState('idle'); error(e); }); });
   handle('listen', mode => { if (!['talk', 'agent'].includes(mode)) throw Error('Invalid mode.'); listen(mode); });
   handle('dictate', toggleDictation);
   handle('stop', stop);

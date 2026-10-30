@@ -4,6 +4,8 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 **Not the official HeyClicky app and not a full replacement for its hosted service.** No official code, branding assets, accounts or private APIs are used. See the feature comparison below. Built from the attached Windows app specification.
 
+![HeyClicky Community UI preview](docs/UI-preview.png)
+
 ## Download & run
 
 1. Open this repository's **[Windows installer workflow](https://github.com/victor123258/HeyClicky/actions/workflows/windows.yml)**.

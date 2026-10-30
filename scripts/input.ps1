@@ -5,6 +5,12 @@ Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class DesktopInput {
+  [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  public static void EnableDpiAwareness() {
+    try { SetThreadDpiAwarenessContext(new IntPtr(-4)); }
+    catch (EntryPointNotFoundException) { SetProcessDPIAware(); }
+  }
   [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
   [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public UNION u; }
@@ -30,6 +36,7 @@ public static class DesktopInput {
   }
 }
 '@
+[DesktopInput]::EnableDpiAwareness()
 $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
 switch ($request.action) {
   'probe' { Write-Output 'OK' }
