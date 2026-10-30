@@ -1,0 +1,41 @@
+# Windows acceptance checklist
+
+These require an actual Windows desktop. Do not mark them complete based on unit tests alone.
+
+## Install & lifecycle
+- [ ] On clean Windows 10 x64 and Windows 11 x64, extract artifact ZIP and run Setup as a non-admin user.
+- [ ] Check Start menu and desktop shortcuts, automatic first launch, first-run Settings, and uninstall.
+- [ ] Test portable executable without Node.js installed. Document shared AppData storage.
+- [ ] Second launch opens the existing panel. Close hides it; tray can reopen and Quit exits all helpers.
+- [ ] Enable/disable startup and verify after a Windows sign-in.
+
+## AI & screen context
+- [ ] Save key/model, restart and confirm key retained but never readable in the UI/settings file.
+- [ ] Test invalid key, exhausted credit, offline network, text-only model and a valid vision/tool model.
+- [ ] Request screen explanation and verify actual contents of selected monitor, not the app panel.
+- [ ] Disable screen context: no screenshots taken, including if model asks for the screenshot tool.
+- [ ] Test screen selection and clicking with a secondary monitor at negative coordinates, 100%/150%/200% scaling. Verify marked coordinates visually before approving clicks.
+- [ ] Disconnect a monitor during a task: stop with an actionable error, not capture/click another screen.
+- [ ] Verify annotations don't intercept mouse, disappear after 16 seconds or Stop, and buddy can be disabled.
+
+## Voice & dictation
+- [ ] With Windows speech pack installed, press Talk hotkey in another app; microphone starts, speech transcribes, answer plays aloud.
+- [ ] Silent microphone, unavailable microphone and missing speech pack produce errors and return to idle.
+- [ ] Select another installed voice and rate; test speech; Stop interrupts listening/synthesis.
+- [ ] Dictate English and non-ASCII text into Notepad; toggle off and confirm no trailing input.
+- [ ] Switch focus during dictation; confirm documented active-window behavior, no clipboard modification.
+
+## Safety
+- [ ] In Talk mode, request a click/command: only guidance/drawing is allowed.
+- [ ] In Agent mode, verify each click/type/keystroke asks; command/file/web tools always ask even with desktop approvals off.
+- [ ] Review exact arguments, Allow once, verify target focus, then fresh screenshot confirms action.
+- [ ] Deny and wait out a two-minute approval: neither executes or retries.
+- [ ] Ctrl+Shift+X while awaiting approval, during network request, during long PowerShell operation and speech. No subsequent tool executes.
+- [ ] An existing file overwrite explicitly asks and shows full path/content. Use disposable files only.
+- [ ] Stop does not claim to undo changes; detached processes limitation is documented.
+- [ ] Hotkey conflict or invalid hotkey produces a visible error; old hotkeys restored after rejected change.
+- [ ] Delete local data confirms first, removes saved key/settings, disables startup, clears storage and quits.
+
+## Release
+- [ ] Record Windows versions, model ID, microphone, speech language, display layout and results in the PR.
+- [ ] Verify checksums and build provenance; sign executable for broader public distribution.
