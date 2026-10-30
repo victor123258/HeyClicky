@@ -25,6 +25,7 @@ function collect(child, signal, timeout = 30000) {
     };
     const abort = () => { kill(child); finish(Error('Stopped.')); };
     const timer = setTimeout(() => { kill(child); finish(Error('Operation timed out.')); }, timeout);
+    child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
     child.stdout.on('data', b => { output += b.toString('utf8'); if (output.length > 65536) { kill(child); finish(Error('Output exceeded 64 KB limit.')); } });
     child.stderr.on('data', b => { error = (error + b.toString('utf8')).slice(-2000); });
     child.on('error', e => finish(e));

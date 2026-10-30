@@ -1,7 +1,7 @@
 // Browser-only design preview. No desktop automation, speech or AI is simulated as real.
 if (!window.clicky) {
   let listener=()=>{}, timer;
-  const defaults={model:'openai/gpt-4.1-mini',voice:'',rate:0,askBeforeActions:true,buddy:true,screenContext:true,speak:true,startWithWindows:false,hasKey:false,hotkeys:{talk:'CommandOrControl+Shift+Space',agent:'CommandOrControl+Shift+A',dictate:'CommandOrControl+Shift+D',panel:'CommandOrControl+Shift+H',stop:'CommandOrControl+Shift+X'}};
+  const defaults={model:'openai/gpt-4.1-mini',voice:'',speechLanguage:'',notch:true,rate:0,askBeforeActions:true,buddy:true,screenContext:true,speak:true,startWithWindows:false,hasKey:false,hotkeys:{talk:'CommandOrControl+Shift+Space',agent:'CommandOrControl+Shift+A',dictate:'CommandOrControl+Shift+D',panel:'CommandOrControl+Shift+H',stop:'CommandOrControl+Shift+X'}};
   let config={...defaults};
   window.clicky={demo:true,onEvent:fn=>listener=fn,call:async(name,...args)=>{
     const event=(type,data)=>listener({type,data});

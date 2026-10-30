@@ -23,6 +23,11 @@ function setState(state) {
   $('#status-dot').style.background = busy ? '#b29ad3' : '#79b791';
   $('#stop').hidden = !busy; $('#send').disabled = busy;
   $('#enter-hint').hidden = busy;
+  $('#voice-test').disabled = busy;
+  $('#voice-test-stop').hidden = !busy;
+  $('#voice').querySelector('span').textContent = state === 'starting' ? 'Opening microphone…' : state === 'listening' ? 'Listening… press to cancel' : 'Talk to Clicky';
+  if (state === 'starting') { $('#voice-feedback').hidden=false; $('#voice-feedback').textContent='Opening the Windows default microphone. Wait for “Listening”…'; }
+
 }
 function scrollChat() { const el = $('#conversation'); el.scrollTop = el.scrollHeight; }
 function message({ role, text, mode: messageMode }) {
@@ -54,11 +59,14 @@ function updateConfig(data) {
   $('#key-status').textContent = data.hasKey ? 'Key saved on this PC' : 'Not connected';
   $('#api-key').value = ''; $('#api-key').placeholder = data.hasKey ? '•••••••••••• · leave blank to keep saved key' : 'sk-or-v1-…';
   $('#model').value = data.model; $('#rate').value = data.rate; $('#rate-value').textContent = data.rate;
-  for (const [id,key] of Object.entries({speak:'speak',buddy:'buddy','ask-before':'askBeforeActions','start-windows':'startWithWindows','screen-context':'screenContext'})) $(`#${id}`).checked = data[key];
+  for (const [id,key] of Object.entries({speak:'speak',buddy:'buddy','ask-before':'askBeforeActions','start-windows':'startWithWindows','screen-context':'screenContext','notch-enabled':'notch'})) $(`#${id}`).checked = data[key];
   $('#safety-note').hidden = data.askBeforeActions;
   $('#context-hint').textContent = data.screenContext ? 'Display under your cursor · captured on send' : 'Text only · screenshots disabled';
   if (data.voice && ![...$('#voice-select').options].some(o => o.value === data.voice)) { const option = document.createElement('option'); option.value = data.voice; option.textContent = data.voice; $('#voice-select').append(option); }
   $('#voice-select').value = data.voice;
+  const language=data.speechLanguage || '';
+  if (language && ![...$('#speech-language').options].some(o=>o.value===language)) { const o=document.createElement('option'); o.value=language; o.textContent=language; $('#speech-language').append(o); }
+  $('#speech-language').value=language;
   $('#shortcut-list').replaceChildren(); $('#hotkey-fields').replaceChildren();
   for (const [key, [title, description]] of Object.entries(shortcutInfo)) {
     const row = document.createElement('div'); row.className='shortcut-row'; const left = document.createElement('div'), heading = document.createElement('strong'), desc = document.createElement('p'); heading.textContent=title; desc.textContent=description; left.append(heading,desc);
@@ -71,11 +79,18 @@ function updateConfig(data) {
 window.clicky.onEvent(({ type, data }) => {
   if (type === 'state') setState(data);
   if (type === 'message') message(data);
-  if (type === 'error') notify(data);
+  if (type === 'error') { notify(data); if ($('#voice-feedback').textContent || busy) { $('#voice-feedback').hidden=false; $('#voice-feedback').textContent=data; $('#microphone-result').textContent=data; } }
+  if (type === 'voice-ready') {
+    const text=`Listening${data.language ? ' · '+data.language : ''}. Speak now, then pause to finish.`;
+    $('#voice-feedback').hidden=false; $('#voice-feedback').textContent=text; $('#microphone-result').textContent=text;
+  }
+  if (type === 'voice-heard') { $('#voice-feedback').hidden=false; $('#voice-feedback').textContent='Heard: '+data; $('#microphone-result').textContent='Heard: '+data; }
+  if (type === 'voice-test-result') $('#microphone-result').textContent='✓ Microphone test complete. Heard: '+data;
+
   if (type === 'tool') tool(data);
   if (type === 'approval') showApproval(data);
   if (type === 'settings-open') view('settings');
-  if (type === 'cleared') { $('#messages').replaceChildren(); $('#welcome').hidden=false; showApproval(null); }
+  if (type === 'cleared') { $('#messages').replaceChildren(); $('#welcome').hidden=false; $('#voice-feedback').hidden=true; $('#voice-feedback').textContent=''; showApproval(null); }
   if (type === 'dictation') tool({name:'dictation',status:'typed (text not retained)'});
 });
 $$('[data-view]').forEach(b => b.onclick = () => view(b.dataset.view));
@@ -112,6 +127,17 @@ $('#test-key').onclick = safeTask(async () => {
   try { $('#test-result').textContent=await call('test-key'); } catch(e) { $('#test-result').textContent=e.message; }
   finally { $('#test-key').disabled=false; }
 });
+$('#voice-test').onclick = safeTask(async () => { $('#microphone-result').textContent='Starting microphone test…'; await call('voice-test'); });
+$('#voice-test-stop').onclick = safeTask(() => call('stop'));
+$$('[data-audio-settings]').forEach(button=>button.onclick=safeTask(()=>call('windows-audio-settings',button.dataset.audioSettings)));
+$('#speech-diagnostics').onclick = safeTask(async () => {
+  const report=await call('speech-diagnostics');
+  const select=$('#speech-language'); select.replaceChildren();
+  const automatic=document.createElement('option'); automatic.value=''; automatic.textContent='Automatic · installed Windows language'; select.append(automatic);
+  for(const language of report.languages.filter((l,i,all)=>all.findIndex(v=>v.id===l.id)===i)) { const option=document.createElement('option'); option.value=language.id; option.textContent=`${language.name} (${language.id})`; select.append(option); }
+  select.value=config.speechLanguage || '';
+  $('#microphone-result').textContent=report.languages.length ? 'Installed recognition languages: '+report.languages.map(l=>l.id).join(', ')+'. Select one, save settings, then test your microphone.' : 'No Windows speech recognition engine found. Install a Speech language pack under Windows Settings → Time & language → Language & region → Language options. Speaking voices alone are not sufficient.';
+});
 $('#load-voices').onclick = safeTask(async () => {
   const voices=await call('voices'); const select=$('#voice-select'); select.replaceChildren();
   for (const name of ['', ...voices]) { const option=document.createElement('option'); option.value=name; option.textContent=name || 'Windows default'; select.append(option); }
@@ -119,7 +145,7 @@ $('#load-voices').onclick = safeTask(async () => {
 });
 $('#settings-form').onsubmit = safeTask(async e => {
   e.preventDefault();
-  const value={ ...config, model:$('#model').value.trim(),voice:$('#voice-select').value,rate:Number($('#rate').value),speak:$('#speak').checked,buddy:$('#buddy').checked,askBeforeActions:$('#ask-before').checked,startWithWindows:$('#start-windows').checked,screenContext:$('#screen-context').checked,hotkeys:{} };
+  const value={ ...config, model:$('#model').value.trim(),voice:$('#voice-select').value,speechLanguage:$('#speech-language').value,notch:$('#notch-enabled').checked,rate:Number($('#rate').value),speak:$('#speak').checked,buddy:$('#buddy').checked,askBeforeActions:$('#ask-before').checked,startWithWindows:$('#start-windows').checked,screenContext:$('#screen-context').checked,hotkeys:{} };
   for (const key of Object.keys(shortcutInfo)) value.hotkeys[key]=$(`#hotkey-${key}`).value.trim();
   const key=$('#api-key').value.trim() || undefined;
   const saved=await call('save-settings',value,key); updateConfig(saved); $('#save-result').textContent='✓ Settings saved on this PC';

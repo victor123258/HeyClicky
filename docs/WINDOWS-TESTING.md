@@ -39,3 +39,15 @@ These require an actual Windows desktop. Do not mark them complete based on unit
 ## Release
 - [ ] Record Windows versions, model ID, microphone, speech language, display layout and results in the PR.
 - [ ] Verify checksums and build provenance; sign executable for broader public distribution.
+
+## Notch and voice input regression (1.2.0)
+- [ ] Primary display shows a compact top-center notch. Hover/click expands; collapse shrinks the actual input-blocking window. No transparent area blocks other apps.
+- [ ] Use all notch controls, check task/listening/approval status and transcript preview, and stop while the full panel is hidden. Full approvals are reviewed only in Chat.
+- [ ] Dictate into Notepad via notch without focus leaving Notepad. Confirm no extra clipboard activity.
+- [ ] Notch is absent from captured screenshots; an approved agent click at the top-center reaches the underlying app, not notch controls.
+- [ ] Toggle notch off, then run tasks: it stays hidden. Change primary display/top taskbar/scale; notch repositions within the work area.
+- [ ] With no API key, Find languages and Test microphone work locally without screen capture, typing or network calls. Compare input language to installed recognizers, not output voices.
+- [ ] Select a non-default installed recognizer, save, then confirm Listening shows the correct language. A missing/removed recognizer gives a specific error.
+- [ ] Disable desktop microphone permission or unplug/change default input, then Test microphone. Error is actionable and the UI returns to idle.
+- [ ] Speak non-ASCII words with a compatible language, pause, verify the exact transcript and one AI submission only after microphone closure.
+- [ ] Cancel, then quickly restart a voice turn; stale transcripts/exit events cannot submit the prior request. A failed startup or silent turn cannot leave the app indefinitely in Starting/Listening.
