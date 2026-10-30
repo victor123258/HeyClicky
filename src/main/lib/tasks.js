@@ -14,8 +14,10 @@ class Tasks {
   changed() {
     this.onChange(this.snapshot());
   }
-  enqueue(text, id) {
+  enqueue(text, id, kind = "desktop") {
     let task = id ? this.items.find((t) => t.id === id) : null;
+    if (task && (task.kind || "desktop") !== kind)
+      throw Error("Use the original task mode for follow-ups.");
     if (id && !task) throw Error("Task is no longer available.");
     if (task && !TERMINAL.includes(task.status))
       throw Error("Wait for this task to finish before following up.");
@@ -24,6 +26,7 @@ class Tasks {
         throw Error("Clear this session before creating more than 30 tasks.");
       task = {
         id: randomUUID(),
+        kind,
         title: text.slice(0, 90),
         status: "queued",
         createdAt: Date.now(),
@@ -43,8 +46,10 @@ class Tasks {
     this.changed();
     return task;
   }
-  next() {
-    return [...this.items].reverse().find((t) => t.status === "queued");
+  next(kind = "desktop") {
+    return [...this.items]
+      .reverse()
+      .find((t) => t.status === "queued" && (t.kind || "desktop") === kind);
   }
   get(id) {
     return this.items.find((t) => t.id === id);
@@ -70,9 +75,13 @@ class Tasks {
     this.update(id, { status: "cancelled" });
     return true;
   }
-  stopAll() {
+  stopAll(kind) {
     for (const task of this.items)
-      if (!TERMINAL.includes(task.status)) task.status = "cancelled";
+      if (
+        (!kind || (task.kind || "desktop") === kind) &&
+        !TERMINAL.includes(task.status)
+      )
+        task.status = "cancelled";
     this.changed();
   }
   clear() {

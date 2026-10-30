@@ -6,7 +6,24 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 ![Notch-centered HeyClicky Community workspace](docs/notch-workspace.png)
 
-## New in 1.5.0 — dark workspace, useful tools & hidden Edge option
+## New in 1.6.0 — research, documents, visual answers & background workers
+
+- **Web research:** `search_web` discovers up to six source leads via DuckDuckGo public HTML search; `fetch_url` reads approved HTTPS sources as bounded text with source/retrieval context. Search and every source fetch require approval. Search is best effort: bot checks, service changes, redirects, dynamic pages and paywalls can block it. Snippets alone are not verified facts. Your query goes to DuckDuckGo and source contents go to your chosen model; no paid search key is required or reliability guaranteed.
+- **Real files:** `create_document` exports **DOCX, PDF, Markdown and text** with explicit path/content approval. DOCX supports basic headings/bullets/paragraphs; PDF uses escaped, offline content and an isolated, JavaScript-disabled print renderer. Body limit is 32,000 characters; the tool refuses to overwrite existing files. Review content/layout before sharing. The separate existing `write_file` tool can still overwrite files with explicit approval. No Office installation is required for export.
+- **Visual answers:** `show_visual` renders 2D bar charts/diagrams and **interactive 3D primitive scenes** inside the notch. Drag to orbit, scroll to zoom, right-drag to pan, reset the view and switch between up to eight session visuals. Three.js is bundled locally; there is no CDN, generated JavaScript, HTML, external asset loading or arbitrary 3D model import. Graphics are explanatory, not CAD, physics simulations or verified measurements. 3D requires WebGL; use 2D/text if graphics are unavailable.
+- **Background mode:** up to **two concurrent off-desktop research/writing workers**, with independent text histories, task cards, results, follow-ups and cancellation. They can search/read sources, draft code/text, create approved documents/files and produce visuals while you continue using Talk or your computer. They cannot see the screen, click/type, open browsers or run shell commands. Every data/file/network operation still asks; approvals are serialized and tied to the right job. Each worker is bounded to 12 model turns and 15 minutes and consumes your OpenRouter credits. Jobs are session-only and stop on app quit. Desktop-control agents remain serialized and use your active desktop—not isolated virtual computers.
+
+### Try it from the notch
+
+- **Talk:** “Research recent developments in [topic]. Compare sources and cite URLs.” Approve search/source requests; do not treat failed or blocked research as verified.
+- **Talk or Agent:** “Create a DOCX report in my Documents folder about [topic], with source links.” Review the output path/content approval. Use a new filename; exports never overwrite.
+- **Talk:** “Explain a cube and sphere using an interactive 3D scene.” Or “Show this data as a 2D chart: …”. Visuals appear in the conversation and can be revisited during the session.
+- **Background:** select the **Background** mode beside Talk/Agent, then send a research/writing task. Submit another to use the second worker. Task cards and approval cards remain in the notch. **Stop** cancels all active/queued work; a task’s Stop cancels only that job. Do not expect unattended execution across approvals, restart or sleep.
+
+![Local interactive 3D preview — illustrative sample, not live AI output](docs/interactive-3d.png)
+
+### Dark workspace, clock/tool fixes & hidden Edge (introduced in 1.5)
+
 
 - **Dark throughout:** notch, fallback panel and Edge setup use dark surfaces, stronger contrast, readable 12–14px controls/body text, larger touch targets and viewport-bounded scrolling. The expanded native notch is now up to **704 × 800** logical pixels, clamped to the available display. Approval arguments scroll independently and action buttons stay reachable. The screenshot above is a browser design preview, not proof of Windows hardware behavior.
 - **Real clock answers:** simple questions such as “what time it is in Dubai?” are answered locally from the device clock using `Asia/Dubai`, not training data. Other timezone questions can use the new `get_time` tool in either mode, with IANA daylight-saving rules. Clock accuracy depends on Windows date/time synchronization. No clock network service/key is needed; normal chat setup still uses your OpenRouter key.
@@ -34,7 +51,7 @@ An independent, open-source **Windows 10/11 desktop AI buddy**, inspired by the 
 
 1. Open this repository's **[Windows installer workflow](https://github.com/victor123258/HeyClicky/actions/workflows/windows.yml)**.
 2. Select the latest **successful** run for `arena/d603b909-heyclicky` (or `main` after merging). Download **HeyClicky-Windows-x64** from the Artifacts section. GitHub requires you to sign in to download workflow artifacts. Extract the ZIP.
-3. Double-click **`HeyClicky-Setup-1.5.0.exe`**. The per-user installer needs no administrator permission, creates shortcuts, and launches the app. Or run **`HeyClicky-Portable-1.5.0.exe`** without installation.
+3. Double-click **`HeyClicky-Setup-1.6.0.exe`**. The per-user installer needs no administrator permission, creates shortcuts, and launches the app. Or run **`HeyClicky-Portable-1.6.0.exe`** without installation.
 4. On first launch, paste your own [OpenRouter API key](https://openrouter.ai/settings/keys) in Settings, choose a vision/tool-capable model, and click **Save settings**, then **Test saved connection**. Your OpenRouter account needs credit. The test checks text access; image/tool support is checked during actual use.
 
 The installer is **unsigned**. Windows may show SmartScreen or your organization may block it. Verify that you downloaded it from your own trusted build; do not disable security protections. Code signing and automatic updates are not configured. Workflow artifacts expire after 30 days; rerun the workflow to rebuild. Executables are generated by CI, not committed to Git.
@@ -66,7 +83,7 @@ The installer is **unsigned**. Windows may show SmartScreen or your organization
 - **No native Gmail, Notion or Google Sheets OAuth connectors.** Desktop/browser automation is not equivalent to those integrations. Do not give the agent passwords, tokens or session cookies.
 - Turn-based speech, not a hosted realtime voice stream. Speech accuracy and languages depend on the selected provider. Edge input may send audio to Microsoft; Windows local input needs installed recognizers. It does not listen for a wake word.
 - No signed installer, updater or macOS build. No guarantee of exact visual or behavioral parity with the official app.
-- No conversational memory between launches. Activity is session-only. No interactive 3D models, image search cards, routines, Chrome extension, or concurrent desktop agents. These are not implied by the UI redesign.
+- No conversational memory between launches. Activity is session-only. No arbitrary imported 3D models/CAD, image search cards, routines, Chrome extension, or concurrent desktop-control agents. Version 1.6 adds bounded structured 3D scenes and concurrent off-desktop research/writing workers. These are not implied by the UI redesign.
 
 ## Everyday use
 
@@ -99,7 +116,7 @@ Use a model/provider that supports **function tools**; with screen context enabl
 - **Talk:** clock/timezone answers, screenshot/drawing, approved HTTPS reads. Try “What time is it in Dubai?” to check the local clock path.
 - **Agent:** clicking, typing, keystrokes, files, commands and opening URLs under the existing approval policy. Select Agent for desktop work; Talk intentionally cannot execute those actions.
 - Batched calls now return matching tool IDs in order before attaching new screenshot messages. Tool results remain bounded and cancellation/denial still stop execution.
-- There is no general web-search backend. For other live facts, provide an appropriate public HTTPS source for an approved read; an inaccessible page, dynamic website or failed fetch is not a verified answer. No live model or physical desktop acceptance is claimed by the automated tests.
+- Version 1.6 adds best-effort public HTML web search for source discovery. Search may be blocked; provide a public HTTPS source if it fails. An inaccessible page, dynamic website or failed fetch is not a verified answer. No live model or physical desktop acceptance is claimed by the automated tests.
 
 ### If Windows voice input does not work
 
@@ -182,7 +199,7 @@ Automated tests cover denial, cancellation during approval, talk-mode isolation,
 
 Before distributing broadly, run [the Windows acceptance checklist](docs/WINDOWS-TESTING.md) on an actual Windows 10/11 machine with a microphone, OpenRouter credit and mixed-DPI monitors. No live paid model call or physical microphone test was run in the Linux coding workspace.
 
-Other limits: the desktop agent uses screenshot coordinates, not Windows UI Automation; dynamic UIs and elevated/secure windows may block or misdirect input. It runs with your current user's permissions and never requests elevation. Windows speech language packs, hotkey conflicts, enterprise execution policies and screenshot restrictions can prevent features from working. HTTPS fetch returns raw text/HTML, not a search engine or JavaScript browser. A disconnected capture display requires a new task. Some OpenRouter models do not support both images and tools.
+Other limits: the desktop agent uses screenshot coordinates, not Windows UI Automation; dynamic UIs and elevated/secure windows may block or misdirect input. It runs with your current user's permissions and never requests elevation. Windows speech language packs, hotkey conflicts, enterprise execution policies and screenshot restrictions can prevent features from working. HTTPS fetch extracts bounded text from HTML, but does not run a JavaScript browser. Best-effort web search is a separate approval-gated tool. A disconnected capture display requires a new task. Some OpenRouter models do not support both images and tools.
 
 ## License
 

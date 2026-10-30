@@ -1,6 +1,6 @@
 {
   "name": "heyclicky-community",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Independent screen-aware AI buddy for Windows",
   "main": "src/main/index.js",
   "author": "HeyClicky Community contributors",
@@ -10,11 +10,17 @@
     "test": "node --test test/*.test.js",
     "check": "node scripts/check.js",
     "dist": "electron-builder --win --x64",
-    "preview": "node scripts/preview.js"
+    "preview": "node scripts/preview.js",
+    "build:visuals": "node scripts/build-visuals.js",
+    "precheck": "npm run build:visuals",
+    "prestart": "npm run build:visuals",
+    "prepreview": "npm run build:visuals",
+    "predist": "npm run build:visuals"
   },
   "devDependencies": {
     "electron": "^42.0.0",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.28.2",
     "jsdom": "^26.1.0"
   },
   "build": {
@@ -52,5 +58,9 @@
     "portable": {
       "artifactName": "HeyClicky-Portable-${version}.${ext}"
     }
+  },
+  "dependencies": {
+    "docx": "^9.15.0",
+    "three": "^0.187.0"
   }
 }

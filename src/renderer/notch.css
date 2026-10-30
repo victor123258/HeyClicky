@@ -1936,3 +1936,62 @@ select option {
 .stop-button {
   color: #ffb8b8 !important;
 }
+.visual-panel {
+  margin-top: 20px;
+  border: 1px solid #40516b;
+  border-radius: 12px;
+  background: #141e2c;
+  padding: 14px;
+  overflow: hidden;
+}
+.visual-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.visual-heading strong {
+  flex: 1;
+  min-width: 120px;
+  font-size: 14px;
+}
+.visual-heading select {
+  width: auto;
+  max-width: 220px;
+  min-height: 32px;
+}
+.visual-heading button {
+  font-size: 12px;
+  color: #c5b2fa;
+  padding: 7px;
+}
+#visual-canvas {
+  width: 100%;
+  min-height: 200px;
+  overflow: hidden;
+  touch-action: none;
+}
+#visual-canvas canvas {
+  display: block;
+  max-width: 100%;
+}
+#visual-caption {
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #d0ddef;
+}
+#visual-help {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #b3bfd3;
+}
+.mode-switch {
+  flex-wrap: wrap;
+}
+.mode-switch button {
+  padding-left: 10px;
+  padding-right: 10px;
+}

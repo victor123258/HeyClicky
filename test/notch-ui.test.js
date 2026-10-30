@@ -196,3 +196,27 @@ test("Hidden Edge preference saves independently from background permission; dar
     dom.window.close();
   }
 });
+test("Background job mode and structured visual preview are available from the notch", async () => {
+  const dom = await setup();
+  try {
+    const d = dom.window.document;
+    d.querySelector("[data-mode=background]").click();
+    assert.match(d.querySelector("#mode-hint").textContent, /No screen/);
+    d.querySelector("#prompt").value = "Research a topic";
+    d.querySelector("#composer").dispatchEvent(
+      new dom.window.Event("submit", { cancelable: true }),
+    );
+    await wait();
+    const jobs = (await dom.window.notchDemo.call("tasks")).data;
+    assert.equal(jobs[0].kind, "background");
+    // Preview scenes contain no HTML; a missing WebGL renderer gives a clear fallback.
+    d.querySelector("#all-chat").click();
+    d.querySelector("#demo-visual").click();
+    await wait();
+    assert.equal(d.querySelector("#visual-panel").hidden, false);
+    assert.match(d.querySelector("#visual-title").textContent, /3D/);
+    assert.equal(d.querySelector("#visual-canvas script"), null);
+  } finally {
+    dom.window.close();
+  }
+});

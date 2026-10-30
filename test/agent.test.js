@@ -253,3 +253,66 @@ test("Batched screenshot and action tools produce contiguous tool responses befo
       name === "screenshot" ? "data:image/jpeg;base64,ABC" : "Typed",
   });
 });
+test("Background agent tool allowlist cannot capture/control desktop or execute shell commands", async () => {
+  let step = 0,
+    executed = false;
+  await runAgent({
+    ...base(),
+    mode: "background",
+    complete: async (messages, allowed) => {
+      const names = allowed.map((t) => t.function.name);
+      for (const name of [
+        "screenshot",
+        "draw",
+        "click",
+        "press_keys",
+        "type_text",
+        "powershell",
+        "open_url",
+      ])
+        assert.ok(!names.includes(name));
+      for (const name of [
+        "search_web",
+        "fetch_url",
+        "create_document",
+        "show_visual",
+      ])
+        assert.ok(names.includes(name));
+      return step++
+        ? { role: "assistant", content: "Not available" }
+        : message([tool("powershell", { command: "echo unsafe" })]);
+    },
+    execute: async () => {
+      executed = true;
+    },
+  });
+  assert.equal(executed, false);
+});
+test("Talk search and document creation can be denied without executing or equivalent retry", async () => {
+  for (const [name, args] of [
+    ["search_web", { query: "research" }],
+    [
+      "create_document",
+      { path: "C:/report.docx", format: "docx", title: "T", content: "Body" },
+    ],
+  ]) {
+    let ran = false,
+      calls = 0;
+    const answer = await runAgent({
+      ...base(),
+      mode: "talk",
+      askBeforeActions: false,
+      complete: async () => {
+        calls++;
+        return message([tool(name, args)]);
+      },
+      approve: async () => false,
+      execute: async () => {
+        ran = true;
+      },
+    });
+    assert.equal(ran, false);
+    assert.equal(calls, 1);
+    assert.match(answer, /denied/);
+  }
+});

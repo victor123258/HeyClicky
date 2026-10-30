@@ -223,6 +223,27 @@
             </div>
             <div id="thread" aria-live="polite"></div>
             <div id="task-steps" hidden></div>
+            <section
+              id="visual-panel"
+              class="visual-panel"
+              hidden
+              aria-label="Visual answer"
+            >
+              <div class="visual-heading">
+                <strong id="visual-title"></strong
+                ><select
+                  id="visual-select"
+                  aria-label="Choose visual answer"
+                ></select
+                ><button id="visual-reset" type="button">Reset view</button>
+              </div>
+              <div id="visual-canvas"></div>
+              <p id="visual-caption"></p>
+              <p id="visual-help">
+                3D: drag to orbit · scroll to zoom · right-drag to pan.
+                Structured educational scenes, not CAD or simulations.
+              </p>
+            </section>
           </section>
           <section id="route-settings" class="page settings-page" hidden>
             <div class="settings-heading">
@@ -561,7 +582,14 @@
               <div class="mode-switch" aria-label="Request mode">
                 <button type="button" data-mode="talk" class="selected">
                   Talk</button
-                ><button type="button" data-mode="agent">Agent</button>
+                ><button type="button" data-mode="agent">Agent</button
+                ><button
+                  type="button"
+                  data-mode="background"
+                  title="Two concurrent off-desktop research/writing workers"
+                >
+                  Background
+                </button>
               </div>
               <span class="enter-hint">Enter ↵</span
               ><button type="submit" id="send" aria-label="Send message">
@@ -603,8 +631,11 @@
       ><button data-preview="peek">Quick peek</button
       ><button data-preview="expanded">Full workspace</button
       ><button id="demo-tasks">Load sample tasks</button
+      ><button id="demo-visual">Try 3D preview</button
+      ><button id="demo-chart">Try 2D preview</button
       ><a href="index.html">Legacy panel ↗</a>
     </div>
+    <script src="visual-bundle.js"></script>
     <script src="notch-demo.js"></script>
     <script src="notch.js"></script>
   </body>

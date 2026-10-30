@@ -75,7 +75,7 @@ class Voice {
       };
       try {
         engine.listen(
-          mode,
+          mode === "background" ? "talk" : mode,
           (text) => {
             if (valid()) {
               delivered = true;

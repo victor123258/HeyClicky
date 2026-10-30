@@ -89,3 +89,15 @@ CI tests protocol/authentication, DOM consent, source/settings, cancellation and
 - [ ] Before background consent, choosing Hidden alone cannot enable background permission. Existing 1.4 preferences migrate to Minimized, not silently to Hidden. Launch may briefly show a browser window before the authenticated helper connects.
 
 Local browser smoke checked 1280×1000, 720×700 and 390×600 with no JS errors/horizontal overflow, but is not Windows DPI, Edge voice or desktop-action verification.
+
+
+## Research, documents, visuals and background workers (1.6.0)
+
+- [ ] With a live compatible model/key, request research. Search query approval is shown; each source fetch asks separately; results cite URLs and retrieval context. Test blocked search/CAPTCHA/403, redirects, dynamic pages and denial. Failures must not be described as verified research.
+- [ ] Request PDF, DOCX, Markdown and text in Documents. Inspect exact path/content approval, actual file contents and formatting in a viewer. Existing export paths must fail without overwriting. Cancel during generation; verify no later file commit where preventable. PDF rendering is also checked by actual Electron CI using a `%PDF` signature, without Office.
+- [ ] Request a chart, a node diagram and a 3D primitive scene. Orbit/zoom/pan/reset and visual selector work inside the notch; caption remains readable; WebGL failure is actionable. No model scripts/URLs/assets run. Check driver/DPI/small-screen behavior. Browser smoke uses real local Three.js/WebGL, not a still image.
+- [ ] Start two Background research/writing jobs and queue a third. Cards/histories/results stay separate. Continue Talk/voice or use another app; background workers never capture the screen, click/type, open a browser or run shell commands. They still consume model credits and wait on approvals. A model requesting forbidden tools must be refused.
+- [ ] Concurrent foreground/background approval requests produce one correctly job-bound approval at a time. Cancel one worker while its approval is queued/visible; no other job is denied or executed accidentally. Global Stop and Quit cancel all; late callbacks cannot mark cancelled work complete. Normal dictation ending must not stop unrelated background jobs.
+- [ ] Follow-ups stay in the original worker mode. Clear requires running jobs to settle. Quit/restart does not resume tasks. Check 15-minute timeout, model/network failures, shared-file conflicts and manual cancellation. Already approved file changes are not undone.
+
+Automated coverage uses fixture search pages, real DOCX ZIP structure/content, mock PDF conversion plus actual Electron PDF smoke on Windows, bounded visual validation, real browser WebGL, mode allowlists, approval serialization and cancellation. It does not prove live search availability, hosted model research/tool quality, Microsoft speech behavior or physical Windows desktop operation.
