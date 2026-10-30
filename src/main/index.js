@@ -17,6 +17,7 @@ const path = require("node:path");
 const fs = require("node:fs/promises");
 const crypto = require("node:crypto");
 const { Settings } = require("./lib/settings");
+const { SettingsUpdater } = require("./lib/settings-update");
 const { complete } = require("./lib/llm");
 const { runAgent } = require("./lib/agent");
 const { timeQuestion } = require("./lib/clock");
@@ -64,6 +65,7 @@ let edge,
 let panel,
   tray,
   settings,
+  settingsUpdater,
   speech,
   notch,
   keys,
@@ -1056,47 +1058,65 @@ function installIPC() {
     approval: approvalPublic,
     packaged: app.isPackaged,
   }));
-  handle("save-settings", async (value, key) => {
-    if (controller || listeningMode || requestRunning)
-      throw Error("Stop the current task before changing settings.");
-    const { validate } = require("./lib/settings");
-    const next = validate(value),
-      previous = settings.value;
-    try {
-      if (next.edgeBackground && !settings.value.edgeBackground)
-        throw Error(
-          "Enable background use from the visible Edge helper after a successful test.",
-        );
-      registerHotkeys(next);
-      const saved = settings.save(next, key);
-      app.setLoginItemSettings({
-        openAtLogin: next.startWithWindows,
-        path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe"),
-      });
-      broadcast("buddy", next.buddy);
-      broadcast("buddy-size", next.buddySize);
-      notch?.setEnabled(next.notch);
-      if (!next.desktopVisuals) desktopCanvas.dismiss();
-      edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
-      // Settings are already saved. A window failure is reported separately, not as a failed key/settings save.
-      await edge
-        .applyWindowPreferences(previous)
-        .catch(() =>
-          edge.changed(
-            "Settings saved, but Edge window state could not be verified. Click Hide Edge helper or restore visible setup.",
-          ),
-        );
-      emit("edge-status", edge.status());
-      if (!next.notch) {
-        panel.show();
-        panel.focus();
-      }
-      return saved;
-    } catch (e) {
-      registerHotkeys(previous);
-      throw e;
-    }
+  settingsUpdater = new SettingsUpdater({
+    settings,
+    registerHotkeys,
+    canSave: () => !controller && !listeningMode && !requestRunning,
+    effects: ({ next, previous }) => [
+      {
+        warning:
+          "Windows startup preference could not be applied. Your settings and hotkeys were saved; retry or check Windows startup settings.",
+        run: () =>
+          app.setLoginItemSettings({
+            openAtLogin: next.startWithWindows,
+            path: process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe"),
+          }),
+      },
+      {
+        warning:
+          "Cursor appearance could not be refreshed. Restart the app to apply it.",
+        run: () => {
+          broadcast("buddy", next.buddy);
+          broadcast("buddy-size", next.buddySize);
+        },
+      },
+      {
+        warning:
+          "Notch visibility could not be refreshed. Restart the app to apply it.",
+        run: () => notch?.setEnabled(next.notch),
+      },
+      {
+        warning: "Desktop visual visibility could not be refreshed.",
+        run: () => {
+          if (!next.desktopVisuals) desktopCanvas.dismiss();
+        },
+      },
+      {
+        warning:
+          "Edge window state could not be verified. Use Hide Edge helper or restore visible setup.",
+        run: async () => {
+          edge.send({ type: "hello", backgroundAllowed: next.edgeBackground });
+          await edge.applyWindowPreferences(previous);
+        },
+      },
+      {
+        warning: "Edge status could not be refreshed.",
+        run: () => emit("edge-status", edge.status()),
+      },
+      {
+        warning:
+          "The standalone window could not be opened. Use the tray to reopen it.",
+        run: () => {
+          if (!next.notch) {
+            panel.show();
+            panel.focus();
+          }
+        },
+      },
+    ],
   });
+  handle("save-settings", (value, key) => settingsUpdater.save(value, key));
+  handle("patch-settings", (changes) => settingsUpdater.patch(changes));
   handle("test-key", async () => {
     await complete({
       key: settings.key,
@@ -1497,12 +1517,8 @@ else {
         native,
         getBackground: () => settings.value.edgeBackground,
         getWindowMode: () => settings.value.edgeWindowMode,
-        onBackground: (allowed, windowMode) => {
-          settings.save({
-            ...settings.value,
-            edgeBackground: allowed,
-            ...(windowMode ? { edgeWindowMode: windowMode } : {}),
-          });
+        onBackground: async (allowed, windowMode) => {
+          await settingsUpdater.updateEdge(allowed, windowMode);
           emit("edge-status", edge.status());
         },
         onStatus: (data) => emit("edge-status", data),
@@ -1651,7 +1667,12 @@ else {
       edgeClosing = true;
       edge
         .dispose()
-        .catch(() => {})
+        .catch(() =>
+          dialog.showErrorBox(
+            "Edge helper may still be open",
+            "The app could not verify that the dedicated Edge helper window closed. Please close that window manually. Your normal Edge browser windows were not targeted.",
+          ),
+        )
         .finally(() => app.quit());
     }
   });

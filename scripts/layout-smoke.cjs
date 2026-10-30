@@ -34,7 +34,8 @@ async function checkLayouts(browser, base = "http://127.0.0.1:3000") {
           window.__layout(state);
         },
         call: async (name, ...args) => {
-          if (name === "save-settings") config = { ...config, ...args[0] };
+          if (["save-settings", "patch-settings"].includes(name))
+            config = { ...config, ...args[0] };
           return { ok: true, data: config };
         },
       };

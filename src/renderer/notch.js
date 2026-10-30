@@ -427,7 +427,16 @@ function showApproval(data) {
   }
 }
 function renderEdgeStatus(data) {
-  if (config) config.edgeBackground = Boolean(data.backgroundAllowed);
+  if (config) {
+    config.edgeBackground = Boolean(data.backgroundAllowed);
+    if (["hidden", "minimized"].includes(data.windowMode)) {
+      // Refresh the cached snapshot too, not just the select. Preserve an
+      // unsaved selection when the server's actual mode has not changed.
+      if (config.edgeWindowMode !== data.windowMode)
+        $("#edge-window-mode").value = data.windowMode;
+      config.edgeWindowMode = data.windowMode;
+    }
+  }
   $("#edge-status").textContent =
     (data.connected ? "Connected. " : "Not connected. ") +
     (data.backgroundAllowed
@@ -678,11 +687,12 @@ $("#edge-close").onclick = task(async () =>
   renderEdgeStatus(await call("edge-close")),
 );
 $("#edge-disable").onclick = task(async () => {
-  const saved = await call("save-settings", {
-    ...config,
+  const saved = await call("patch-settings", {
     edgeBackground: false,
   });
   config.edgeBackground = saved.edgeBackground;
+  if (saved.saveWarnings?.length)
+    notify("Settings saved. " + saved.saveWarnings.join(" "));
   renderEdgeStatus(await call("edge-status"));
 });
 $("#voice-test").onclick = task(() => call("voice-test"));
@@ -756,17 +766,22 @@ $("#settings-form").onsubmit = task(async (e) => {
       $("#api-key").value.trim() || undefined,
     );
     fillSettings(saved);
-    $("#save-result").textContent = "✓ Saved on this PC";
+    $("#save-result").textContent = saved.saveWarnings?.length
+      ? "Saved with warnings: " + saved.saveWarnings.join(" ")
+      : "✓ Saved on this PC";
+    if (saved.saveWarnings?.length)
+      notify("Settings saved. " + saved.saveWarnings.join(" "));
   } finally {
     saving = false;
   }
 });
 $("#screen-toggle").onclick = task(async () => {
-  const saved = await call("save-settings", {
-    ...config,
+  const saved = await call("patch-settings", {
     screenContext: !config.screenContext,
   });
   fillSettings(saved);
+  if (saved.saveWarnings?.length)
+    notify("Settings saved. " + saved.saveWarnings.join(" "));
 });
 api.onEvent(renderLayout);
 api.onAppEvent(appEvent);

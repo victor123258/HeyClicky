@@ -69,7 +69,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
           ok: true,
           data: { ...config, messages, tasks: jobs, state: layout.state },
         };
-      if (name === "save-settings") {
+      if (name === "save-settings" || name === "patch-settings") {
         if (args[1])
           return {
             ok: false,
