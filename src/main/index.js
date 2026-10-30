@@ -555,6 +555,15 @@ async function ask(text, mode = "talk", display, taskId = null) {
         ? {
             ...visualContext(desktopCanvas.current.spec),
             activeStep: desktopCanvas.step,
+            selectedPart: desktopCanvas.selectedPart()
+              ? {
+                  id: desktopCanvas.selectedId,
+                  label: desktopCanvas.selectedPart().label,
+                  description: (
+                    desktopCanvas.selectedPart().description || ""
+                  ).slice(0, 160),
+                }
+              : null,
           }
         : null,
       outputDirectory: /document|report|pdf|docx|write|create/i.test(text)
@@ -1317,6 +1326,11 @@ async function runDesktopSmoke() {
       !canvasWindow.isFocusable()
     )
       throw Error("Explicit canvas interaction failed.");
+    const guarded = await canvasWindow.webContents.executeJavaScript(
+      `window.desktopCanvas.command('select',{visualId:'stale-scene',id:'missing'})`,
+    );
+    if (guarded.ok !== false || desktopCanvas.selectedId !== null)
+      throw Error("Canvas accepted a stale selection.");
     await canvasWindow.webContents.executeJavaScript(
       `window.desktopCanvas.command('passthrough')`,
     );
@@ -1387,6 +1401,11 @@ else {
         BrowserWindow,
         screen,
         onState: (data) => emit("canvas-status", data),
+        onExplain: ({ id }) =>
+          submit(
+            `Explain the selected component (part ID ${JSON.stringify(id)}) in the current visual. Use its scene context and preserve the model; distinguish generated illustration from verified facts.`,
+            "talk",
+          ),
         canNarrate: () => !controller && !listeningMode && !requestRunning,
         canInteract: () => !controller && !listeningMode && !requestRunning,
         speak: (text, signal) => speech.speak(text, settings.value, signal),

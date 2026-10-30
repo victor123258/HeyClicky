@@ -478,3 +478,70 @@ test("guide waits for bounded part transitions and cancellation clears a transit
   assert.equal(m.audioState, "off");
   m.dispose();
 });
+test("component selection requires explicit interaction and fresh scene ID; focus/explain use only available parts", async () => {
+  const requests = [],
+    m = manager({ onExplain: async (part) => requests.push(part) });
+  present(m);
+  await assert.rejects(
+    m.command("select", { visualId: "one", id: "wing" }),
+    /Interact/,
+  );
+  await m.command("interact");
+  await assert.rejects(
+    m.command("select", { visualId: "old", id: "wing" }),
+    /changed/,
+  );
+  await assert.rejects(
+    m.command("select", { visualId: "one", id: "missing" }),
+    /not available/,
+  );
+  await m.command("select", { visualId: "one", id: "wing" });
+  assert.equal(m.selectedPart().id, "wing");
+  assert.equal(m.snapshot().selectedId, "wing");
+  await m.command("focus", { visualId: "one" });
+  assert.equal(m.snapshot().focusId, "wing");
+  assert.equal(m.focusRevision, 1);
+  await m.command("explain-part", { visualId: "one" });
+  assert.equal(requests[0].id, "wing");
+  assert.equal(m.interactive, false);
+  assert.equal(m.window.ignore, true);
+  const v = { id: "updated", spec: scene() };
+  m.present(v, undefined, { preserveView: true });
+  assert.equal(m.selectedId, "wing");
+  m.present({ ...v, id: "new" });
+  assert.equal(m.selectedId, null);
+  m.dispose();
+});
+test("hidden/deleted parts clear selection and busy explanation cannot issue a model request", async () => {
+  let asked = false;
+  const m = manager({
+    onExplain: () => {
+      asked = true;
+    },
+  });
+  m.present({
+    id: "one",
+    spec: scene({
+      steps: [
+        { title: "show", narration: "show" },
+        { title: "hide", narration: "hide", visible: [] },
+      ],
+    }),
+  });
+  await m.command("interact");
+  await m.command("select", { visualId: "one", id: "wing" });
+  m.canInteract = () => false;
+  await assert.rejects(
+    m.command("explain-part", { visualId: "one" }),
+    /Finish/,
+  );
+  assert.equal(asked, false);
+  await m.command("step", 1);
+  assert.equal(m.selectedId, null);
+  await assert.rejects(
+    m.command("focus", { visualId: "one", id: "wing" }),
+    /not available/,
+  );
+  m.dispose();
+  assert.equal(m.selectedId, null);
+});

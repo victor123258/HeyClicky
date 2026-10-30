@@ -1,4 +1,5 @@
 const path = require("node:path");
+const { visiblePartIds } = require("../shared/scene-data");
 const { validateVisual } = require("./lib/visuals");
 function canvasBounds(display, placement = "right") {
   const a = display.workArea || display.bounds,
@@ -21,6 +22,7 @@ class DesktopCanvas {
     speak = async () => {},
     canNarrate = () => true,
     canInteract = () => true,
+    onExplain = () => {},
   }) {
     Object.assign(this, {
       BrowserWindow,
@@ -29,6 +31,7 @@ class DesktopCanvas {
       speak,
       canNarrate,
       canInteract,
+      onExplain,
     });
     this.window = null;
     this.current = null;
@@ -40,6 +43,9 @@ class DesktopCanvas {
     this.audio = null;
     this.audioState = "off";
     this.animate = false;
+    this.selectedId = null;
+    this.focusId = null;
+    this.focusRevision = 0;
     this.lastError = "";
   }
   snapshot(full = false) {
@@ -54,6 +60,10 @@ class DesktopCanvas {
       step: this.step,
       reset: this.reset,
       viewKey: this.viewKey,
+      selectedId: this.selectedId,
+      selectedLabel: this.selectedPart()?.label || this.selectedId || "",
+      focusId: this.focusId,
+      focusRevision: this.focusRevision,
       audio: this.audioState,
       animate: this.animate,
       error: this.lastError,
@@ -104,6 +114,8 @@ class DesktopCanvas {
       this.cancelNarration();
       this.window = null;
       this.current = null;
+      this.selectedId = null;
+      this.focusId = null;
       this.interactive = false;
       this.publish();
     });
@@ -120,12 +132,20 @@ class DesktopCanvas {
     this.step = keep
       ? Math.min(oldStep, Math.max(0, (spec.steps?.length || 1) - 1))
       : 0;
+    if (!keep || !visiblePartIds(spec, this.step).includes(this.selectedId))
+      this.selectedId = null;
+    this.focusId = null;
     this.reset++;
     if (!keep) this.viewKey++;
     this.lastError = "";
     this.ensure(display);
     this.setInteractive(false);
     this.refresh();
+  }
+  selectedPart() {
+    return (
+      this.current?.spec.objects?.find((o) => o.id === this.selectedId) || null
+    );
   }
   refresh() {
     if (!this.current) return;
@@ -170,6 +190,8 @@ class DesktopCanvas {
   dismiss() {
     this.cancelNarration();
     this.current = null;
+    this.selectedId = null;
+    this.focusId = null;
     this.interactive = false;
     if (this.window && !this.window.isDestroyed()) {
       this.window.setIgnoreMouseEvents(true);
@@ -185,6 +207,43 @@ class DesktopCanvas {
     }
     if (!this.current)
       throw Error("No desktop visual is open. Ask for a visual answer first.");
+    if (["select", "focus", "explain-part"].includes(action)) {
+      if (!value || value.visualId !== this.current.id)
+        throw Error("This visual changed; select the part again.");
+      const id = value.id === null ? null : (value.id ?? this.selectedId);
+      if (
+        id !== null &&
+        (!this.current.spec.objects?.some((o) => o.id === id) ||
+          !visiblePartIds(this.current.spec, this.step).includes(id))
+      )
+        throw Error("Part is not available in the current step.");
+      if (action === "select") {
+        if (!this.interactive || !this.canInteract())
+          throw Error("Enable Interact before selecting parts.");
+        this.selectedId = id;
+        this.publish();
+      } else {
+        if (!id) throw Error("Select a part first.");
+        if (action === "focus") {
+          this.focusId = id;
+          this.focusRevision++;
+          this.publish();
+        } else {
+          if (!this.canInteract())
+            throw Error("Finish the active task before asking about a part.");
+          const part = this.current.spec.objects.find((o) => o.id === id);
+          this.selectedId = id;
+          this.setInteractive(false);
+          await this.onExplain({
+            visualId: this.current.id,
+            id: part.id,
+            label: part.label || part.id,
+            description: part.description || "",
+          });
+        }
+      }
+      return this.snapshot();
+    }
     if (action === "interact") {
       if (!this.canInteract())
         throw Error(
@@ -207,6 +266,11 @@ class DesktopCanvas {
         throw Error("Invalid teaching step.");
       this.cancelNarration();
       this.step = value;
+      if (
+        !visiblePartIds(this.current.spec, this.step).includes(this.selectedId)
+      )
+        this.selectedId = null;
+      this.focusId = null;
       this.publish();
     } else if (action === "stop-audio") {
       this.cancelNarration();
@@ -248,6 +312,12 @@ class DesktopCanvas {
         controller.signal.throwIfAborted();
         if (this.current !== visual) return;
         this.step = i;
+        if (
+          !visiblePartIds(this.current.spec, this.step).includes(
+            this.selectedId,
+          )
+        )
+          this.selectedId = null;
         this.publish();
         const began = Date.now();
         await this.speak(
