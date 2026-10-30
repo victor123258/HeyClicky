@@ -5,8 +5,7 @@ Get-ChildItem "$PSScriptRoot\*.ps1" | ForEach-Object {
   [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
   if ($errors.Count -gt 0) { throw ($errors | Out-String) }
 }
-'{"action":"probe"}' | & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PSScriptRoot\input.ps1"
-if ($LASTEXITCODE -ne 0) { throw 'Native input helper failed' }
-'{"action":"voices"}' | & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PSScriptRoot\speak.ps1"
-if ($LASTEXITCODE -ne 0) { throw 'Speech synthesis helper failed' }
+# Use the same raw UTF-8 process protocol as Electron, not PowerShell's object pipeline.
+node "$PSScriptRoot\windows-smoke.js"
+if ($LASTEXITCODE -ne 0) { throw 'Native helper probes failed; see annotated error details above.' }
 Write-Output 'Windows helper smoke checks passed.'
