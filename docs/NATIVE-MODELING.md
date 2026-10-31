@@ -15,6 +15,10 @@ All geometry parts retain `id`, `type`, `label`, `color`, `x/y/z`, `size`, optio
 - `material:{roughness,metalness,clearcoat,emissiveIntensity:0..1,emissive:'#RRGGBB'}`: bounded physical material settings; unknown fields are discarded, not evaluated. Lighting is an enum: `studio`, `soft`, `technical`.
 - `description` (800 chars): explanatory component metadata, not trusted facts/instructions. `labelOffset:[x,y,z]` (±5): local callout anchor adjustment. Screen-space labels follow transformed parts, use leader lines and collision-aware placement. At most 16 callouts show simultaneously; crowded/offscreen labels hide and all available parts remain in the accessible selector.
 
+## Tool payload compatibility
+
+`show_visual.spec` and `update_visual.changes` accept either a JSON-encoded object string (the advertised provider schema) or a JSON object. Both normalize to the same bounded, validated data; Markdown/code and arrays are not accepted. New 3D parts may omit `x/y/z` (default 0), `size` (1), and `color` (`#a4b5cf`), including template parts. Explicit invalid values are still rejected, and arrows/meshes/procedural parts still need their required geometry. Follow-up patches keep stable IDs and merge only explicitly supplied fields. Diagrams may omit `edges` (empty list) and edge labels (empty string).
+
 ## Reusable assemblies
 
 A scene may declare up to six `assemblies:[{id,parts:[...]}]`, each with 1–16 local parts. An object `{id:'left',type:'assembly',assembly:'connector',x:-2,y:0,z:0}` creates a group `left` and children `left__partID`. Group/part hierarchy inside a template is local to that definition. No recursive instances or external references. Templates are per-scene/session definitions, not a persistent asset marketplace or cross-session library. Follow-up tool context returns stable expanded IDs.

@@ -167,3 +167,12 @@ Optional browser check: install `playwright-core` without changing production de
 - [ ] Failed closure clears pending stop timers, disconnects the local connection and keeps the profile for manual recovery. Delete-data must not remove an unverified/open helper profile. Window closure does not imply all Edge background processes exited; separately verify that recording indicators stop and no microphone session persists.
 
 Regression tests inject OS/persistence failures and exercise both real UI scripts. Windows native probes now also check the verified-close response with a fresh nonexistent profile (no real Edge window or microphone). Physical closure of a real Edge window, hung-window behavior and microphone shutdown remain manual acceptance.
+
+## Visual tool-call regressions (1.8.4)
+
+- [ ] With a tools-capable model, ask Talk to draw a labeled 2D diagram, then a simple 3D sphere. Both should appear on the transparent desktop canvas without a generic “components unavailable” answer. Repeat with Screen context off to separate image-provider compatibility from graphics tool calling.
+- [ ] Ask to change a label/color, add a part, then add narrated steps. Edits should retain existing stable part IDs, and ordinary edits must not restart the old narration. Check Interact, orbit, select and dismiss still work.
+- [ ] Check the notch and standalone chat show the concrete reason for failed tool arguments, rendered as plain text. Malformed JSON may be corrected once; a second failure must be explained, not claimed successful. WebGL/driver failures remain real rendering limitations; do not claim missing drivers have been fixed by argument normalization.
+- [ ] Verify malformed geometry, out-of-range coordinates, excessive scene sizes, unknown patch fields and missing required desktop-action arguments remain rejected. Approvals, mode restrictions, Stop and working voice input must remain unchanged.
+
+Automated tests cover object/string encodings for charts, diagrams, free-form 2D and 3D, follow-up patches, safe omitted-field defaults, canonical revalidation, bounded JSON payloads, provider description budgets, the OpenRouter adapter/agent pipeline, desktop presentation and plain-text error display. They use mock provider responses, not a paid/live model; actual provider and Windows GPU/microphone acceptance still need device testing.

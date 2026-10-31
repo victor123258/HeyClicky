@@ -545,3 +545,30 @@ test("hidden/deleted parts clear selection and busy explanation cannot issue a m
   m.dispose();
   assert.equal(m.selectedId, null);
 });
+
+test("object-encoded 2D/3D tool payloads and edits survive desktop presentation revalidation", () => {
+  for (const data of [
+    {
+      kind: "canvas2d",
+      elements: [{ type: "box", x: 100, y: 100, x2: 400, y2: 400 }],
+    },
+    { kind: "scene3d", objects: [{ id: "ball", type: "sphere" }] },
+  ]) {
+    const m = manager();
+    const args = validateTool("show_visual", {
+      spec: { title: "Example", caption: "Conceptual", ...data },
+    });
+    const original = validateVisual(args.spec);
+    m.present({ id: "first", spec: original });
+    assert.deepEqual(m.current.spec, original);
+    const patch = validateTool("update_visual", {
+      changes: { caption: "Changed" },
+    });
+    const next = applyVisualPatch(m.current.spec, patch.changes);
+    m.present({ id: "next", spec: next }, undefined, { preserveView: true });
+    assert.equal(m.current.spec.caption, "Changed");
+    assert.equal(m.current.spec.kind, data.kind);
+    assert.equal(m.snapshot().error, "");
+    m.dispose();
+  }
+});
