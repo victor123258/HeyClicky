@@ -442,6 +442,12 @@ $("#load-voices").onclick = safeTask(async () => {
   }
   select.value = config.voice;
 });
+// This is a draft choice only. The normal Save path retains key encryption,
+// task guards and validation; selecting a preset never sends an AI request.
+$("#use-free-router").onclick = () => {
+  $("#model").value = "openrouter/free";
+  $("#model").focus();
+};
 $("#settings-form").onsubmit = safeTask(async (e) => {
   e.preventDefault();
   const value = {

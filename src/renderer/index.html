@@ -377,11 +377,15 @@
               ><label for="model">Model ID</label
               ><input
                 id="model"
-                placeholder="openai/gpt-4.1-mini"
+                placeholder="openrouter/free"
                 required
-              /><small
-                >Example: openai/gpt-4.1-mini. Model usage is billed by
-                OpenRouter.</small
+              /><button type="button" id="use-free-router" class="secondary">
+                Use Free Models Router</button
+              ><small id="model-help"
+                >Default: openrouter/free. OpenRouter selects compatible free
+                models. An API key is still required; availability and usage
+                limits apply. Custom models may incur charges. Choose above,
+                then Save to apply.</small
               >
               <div class="settings-test">
                 <button type="button" id="test-key" class="secondary">

@@ -3,7 +3,7 @@ if (!window.clicky) {
   let listener = () => {},
     timer;
   const defaults = {
-    model: "openai/gpt-4.1-mini",
+    model: "openrouter/free",
     voice: "",
     speechLanguage: "",
     notch: true,

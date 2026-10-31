@@ -2,7 +2,7 @@
 
 **A voice-first AI desktop buddy for Windows 10/11.** Talk about your screen, get on-screen guidance, dictate into other apps, and work with an approval-based desktop agent—all from a compact notch workspace.
 
-An independent, open-source project inspired by [HeyClicky](https://www.heyclicky.com/). **Not the official HeyClicky app, not affiliated with its service, and not a full replacement for it.** No official accounts, private APIs or proprietary engine are used. Bring your own OpenRouter API key; model usage is billed by OpenRouter.
+An independent, open-source project inspired by [HeyClicky](https://www.heyclicky.com/). **Not the official HeyClicky app, not affiliated with its service, and not a full replacement for it.** No official accounts, private APIs or proprietary engine are used. Bring your own OpenRouter API key. New installs default to OpenRouter’s **Free Models Router** (`openrouter/free`); custom paid models are billed by OpenRouter.
 
 ![HeyClicky Community notch workspace](docs/notch-workspace.png)
 
@@ -11,7 +11,9 @@ An independent, open-source project inspired by [HeyClicky](https://www.heyclick
 1. Open the [Windows installer builds for main](https://github.com/victor123258/HeyClicky/actions/workflows/windows.yml?query=branch%3Amain).
 2. Select the latest **successful** `main` run and download **HeyClicky-Windows-x64** from its Artifacts section. GitHub sign-in is required; extract the ZIP.
 3. Run `HeyClicky-Setup-<version>.exe` for a one-click, per-user installation with shortcuts. Alternatively, run `HeyClicky-Portable-<version>.exe` without installing.
-4. Open **Settings**, add your own [OpenRouter API key](https://openrouter.ai/settings/keys), select a model, save, and test the connection. With screen context enabled, the model needs **image and function-tool support**. A successful text connection test does not prove either capability.
+4. Open **Settings**, add your own [OpenRouter API key](https://openrouter.ai/settings/keys), keep **Free Models Router** (`openrouter/free`) or select a custom model, save, and test the connection. With screen context enabled, the model needs **image and function-tool support**. A successful text connection test does not prove either capability.
+
+**Free Models Router:** OpenRouter selects from available free models compatible with the request, including image/tool requirements. This is server-side routing, not unlimited usage or guaranteed task quality. Free-model availability and account rate limits still apply, and the app does not silently fall back to a paid model. An API key is still required. See [OpenRouter’s router documentation](https://openrouter.ai/openrouter/free). Existing saved model choices are preserved on upgrade; choose **Use Free Models Router**, then **Save** in Settings to switch.
 
 **Requirements:** x64 Windows 10/11, internet access, and Windows PowerShell 5.1. Voice input also needs a microphone and either an installed Windows speech-recognition language pack or Microsoft Edge. Node.js is **not** required to run the app.
 

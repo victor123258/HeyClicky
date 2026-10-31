@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { validate, Settings, DEFAULTS } = require('../src/main/lib/settings');
 test('defaults are valid and partial hotkeys merge', () => {
-  assert.equal(validate({}).model, 'openai/gpt-4.1-mini');
+  assert.equal(validate({}).model, 'openrouter/free');
   assert.equal(validate({ hotkeys: { talk: 'Ctrl+Alt+T' } }).hotkeys.stop, DEFAULTS.hotkeys.stop);
 });
 for (const [name, input] of Object.entries({ model: { model: 'https://bad' }, rate: { rate: 8 }, boolean: { buddy: 'true' }, voice: {voice:123}, duplicate: {hotkeys:{talk:DEFAULTS.hotkeys.agent}}, key: {hotkeys:{stop:'Escape'}} })) {
@@ -44,4 +44,24 @@ test('legacy preferences gain notch and automatic recognition-language defaults'
 });
 test('New background setup defaults to hidden, while legacy explicit minimized preference survives',()=>{
   assert.equal(validate({}).edgeWindowMode,'hidden');assert.equal(validate({edgeWindowMode:'minimized',edgeBackground:true}).edgeWindowMode,'minimized');assert.equal(validate({edgeWindowMode:'hidden'}).edgeWindowMode,'hidden');assert.throws(()=>validate({edgeWindowMode:'headless'}));assert.equal(validate({edgeWindowMode:'hidden'}).edgeBackground,false);
+});
+
+test('free router defaults do not overwrite explicitly saved model choices', () => {
+  for (const model of ['openrouter/free', 'openai/gpt-4.1-mini', 'openai/gpt-4.1', 'example/model:free'])
+    assert.equal(validate({model}).model, model);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'clicky-router-'));
+  const encryption = { isEncryptionAvailable: () => true, encryptString: s => Buffer.from(s), decryptString: b => b.toString() };
+  try {
+    const fresh = new Settings(dir, encryption);
+    assert.equal(fresh.value.model, 'openrouter/free');
+    fresh.save({model: 'openai/gpt-4.1-mini'}, 'test-only-key');
+    const restored = new Settings(dir, encryption);
+    assert.equal(restored.value.model, 'openai/gpt-4.1-mini');
+    restored.save({...restored.value, model: 'openrouter/free'});
+    const again = new Settings(dir, encryption);
+    assert.equal(again.value.model, 'openrouter/free');
+    assert.equal(again.key, 'test-only-key');
+    assert.equal(again.public().askBeforeActions, true);
+    assert.equal(JSON.stringify(again.public()).includes('test-only-key'), false);
+  } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 });
