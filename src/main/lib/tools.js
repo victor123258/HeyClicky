@@ -1,3 +1,4 @@
+const { visualJSON } = require("./visual-json");
 const object = (properties) => ({
   type: "object",
   properties,
@@ -24,10 +25,21 @@ const definitions = [
   ],
   [
     "show_visual",
-    'Show a structured visual over the desktop (transparent, click-through by default) and archive it in the notch. JSON: {kind,title,caption,placement?:"left|center|right",steps?:[{title,narration,highlight:[ids],visible?:[ids],poses?:[{id,position?:[x,y,z],rotation?:[degrees,degrees,degrees],scale?:[x,y,z]}],durationMs?:0..2500}]}. kind chart: items:[{id?,label,value}] max20. diagram: nodes:[{id,label,x,y}],edges:[{from,to,label}] coords0–1000. canvas2d: elements:[{id?,type:"box|ellipse|arrow|path|text",x,y,x2?,y2?,label?,color?:"#RRGGBB",fill?:"none|#RRGGBB",fontSize?:12..48,points?:[[x,y],...]}] max80. scene3d: objects:[{id?,type:"box|sphere|cylinder|cone|torus|plane|arrow|line|label|mesh",label,color:"#RRGGBB",x,y,z,size,rotation?:[degrees,degrees,degrees],scale?:[x,y,z],opacity?,wireframe?,to?:[x,y,z],points?:[[x,y,z],...],vertices?:[[x,y,z],...],faces?:[[index,index,index],...],motion?:{mode:"rotate|pulse",axis:"x|y|z",speed:-1..1}}] max40. Positions -20..20, size .1..5, local mesh vertices -5..5 max256, faces max512; rotation ±360, scale .01..10. Arrow needs to; line needs points; mesh needs vertices/faces. Up to12 teaching steps reference stable IDs. 3D poses cumulatively move/rotate/scale parts in each step, e.g. lift a connector latch then slide a cable into place; omitted poses retain earlier step targets. Always include complete spoken teaching content and uncertainty in step narration. Foreground answers automatically narrate steps when Speak answers and Automatic visual explanations are on. Motion is user-controlled, at most8 objects; respect reduced motion. Use meshes and transforms to assemble custom educational objects. No code, URLs, textures, shaders or imported models. Caption must disclose uncertainty; not CAD or simulation.',
+    "Show transparent desktop 2D graphics or interactive 3D and archive them in the notch. Pass spec as a JSON-encoded object string (an object is also accepted). Follow the format guide in spec. Use stable IDs for teaching steps and follow-up edits. Data only: no code, URLs, textures, shaders or imported models. Graphics are explanatory, not verified CAD/simulation; disclose uncertainty in the caption and narration.",
     {
       spec: string(
-        "Structured visual JSON, max 60,000 characters. Extended 3D: type roundedBox; extrude needs profile:[[x,y],...] 3..32 simple noncrossing points ±5, depth .05..5, bevel 0..min(.2,depth/2); lathe needs profile:[[radius,height],...] 2..32, radius0..5/height±5; tube needs points:[[x,y,z],...]2..32 ±5, radius .02..2; tube/lathe segments integer8..64(default32). group is a transform assembly (defaults position0/size1/color). Any part may have parent:groupID, pivot:[x,y,z] ±5 in local coordinates, labelOffset:[x,y,z] ±5, description up to800 chars, material:{roughness,metalness,clearcoat,emissiveIntensity:0..1,emissive:'#RRGGBB'}. Child coordinates are parent-local. Hinges rotate around pivot; step poses target local position/rotation/scale. lighting:studio|soft|technical. Reuse with assemblies:[{id,parts:[objects with local IDs]}] up to6 templates/16 parts each, then {id,type:'assembly',assembly:templateID,...transforms}. Instances expand to group ID and instanceID__partID children. Expanded scene max40 objects, hierarchy depth8, scale product<=50, procedural triangle estimate<=60000. No recursive instances/cycles/assets/code. Use IDs from returned context for follow-up patches.",
+        [
+          'Structured visual JSON, max 60,000 characters: {kind,title,caption,placement?:"left|center|right",steps?:[...]}. Title max160, caption max2000; disclose uncertainty, not verified CAD/simulation. Pass a JSON-encoded object string; do not wrap it in Markdown.',
+          "chart: items:[{id?,label,value}] 1..20, values ±1000000. diagram: nodes:[{id,label,x,y}] 1..20, edges?:[{from,to,label?}] max40, coordinates 0..1000. Omitted edges/edge labels default to []/empty string.",
+          'canvas2d: elements:[{id?,type:"box|ellipse|arrow|path|text",x,y,x2?,y2?,label?,color?:"#RRGGBB",fill?:"none|#RRGGBB",fontSize?:12..48,points?:[[x,y],...]}] 1..80. Coordinates 0..1000; path needs 2..128 points.',
+          "scene3d: objects:[{id?,type,label?,color?,x?,y?,z?,size?,rotation?,scale?,opacity?,wireframe?,to?,points?,vertices?,faces?,motion?,parent?,pivot?,labelOffset?,description?,material?,profile?,depth?,bevel?,radius?,segments?}] 1..40. Types: box,sphere,cylinder,cone,torus,plane,arrow,line,label,mesh,group,roundedBox,extrude,lathe,tube,assembly. Omitted x/y/z default to 0, size to 1, color to #a4b5cf. Positions ±20, size .1..5, color #RRGGBB. rotation:[degrees,degrees,degrees] ±360; scale:[x,y,z] .01..10; opacity .1..1, wireframe boolean.",
+          'Arrow needs to:[x,y,z] ±20. Line needs points:[[x,y,z],...] 2..128, local ±5. Mesh needs vertices:[[x,y,z],...] 3..256, local ±5, faces:[[index,index,index],...] 1..512. Scene totals max4096 vertices/8192 faces. motion:{mode:"rotate|pulse",axis:"x|y|z",speed:-1..1 nonzero} max8 objects; user-controlled, respect reduced motion.',
+          "Extrude needs profile:[[x,y],...] 3..32 simple noncrossing points ±5, depth .05..5, bevel 0..min(.2,depth/2). Lathe needs profile:[[radius,height],...] 2..32, radius 0..5/height ±5. Tube needs points:[[x,y,z],...] 2..32 local ±5, radius .02..2. Tube/lathe segments integer8..64 (default32).",
+          'group is transform-only. parent must name a group; children use parent-local coordinates. pivot:[x,y,z] ±5 is a local hinge origin, labelOffset:[x,y,z] ±5 moves callouts, description max800. material:{roughness,metalness,clearcoat,emissiveIntensity:0..1,emissive:"#RRGGBB"}. lighting:studio|soft|technical.',
+          'Reuse with assemblies:[{id,parts:[objects with local IDs]}] up to6 templates/16 parts each, and {id,type:"assembly",assembly:templateID,...transforms}. Instances expand to group ID and instanceID__partID children. Expanded scene max40 objects, hierarchy depth8, scale product<=50, procedural triangle estimate<=60000. No recursive instances/cycles/assets/code. Use IDs from returned context for patches.',
+          "Up to12 steps:[{title,narration,highlight?:[ids],visible?:[ids],poses?:[{id,position?:[x,y,z],rotation?:[degrees,degrees,degrees],scale?:[x,y,z]}],durationMs?:0..2500}]. Narration max1500 per step; include complete teaching content and uncertainty. IDs must exist. 3D poses cumulatively transform parts; omitted targets retain earlier poses. Foreground steps auto-narrate when Speak answers and Automatic visual explanations are enabled. No code, URLs, textures, shaders or imported models.",
+          'Examples: 2D {"kind":"canvas2d","title":"Arrow","caption":"Conceptual","elements":[{"id":"a","type":"arrow","x":100,"y":500,"x2":900,"y2":500}]}; 3D {"kind":"scene3d","title":"Ball","caption":"Conceptual","objects":[{"id":"ball","type":"sphere","color":"#88aaff","x":0,"y":0,"z":0,"size":1}]}. Encode the whole example once as the spec string.',
+        ].join(" "),
       ),
     },
   ],
@@ -115,6 +127,19 @@ function validateTool(name, args) {
   const def = tools.find((t) => t.function.name === name)?.function;
   if (!def || !args || typeof args !== "object" || Array.isArray(args))
     throw Error("Unknown tool or invalid arguments.");
+  // Normalize only visual payloads; desktop actions keep their exact required
+  // fields/types and approval review still sees the executed arguments.
+  if (name === "show_visual" || name === "update_visual") {
+    const key = name === "show_visual" ? "spec" : "changes";
+    args = {
+      ...args,
+      [key]: visualJSON(
+        args[key],
+        key === "spec" ? 60000 : 30000,
+        key === "spec" ? "Visual specification" : "Visual patch",
+      ).encoded,
+    };
+  }
   const fields = def.parameters.properties;
   if (Object.keys(args).some((k) => !Object.hasOwn(fields, k)))
     throw Error("Unexpected tool argument.");
@@ -161,10 +186,7 @@ function validateTool(name, args) {
   if (name === "create_document") require("./documents").validateDocument(args);
   if (name === "show_visual") require("./visuals").validateVisual(args.spec);
   if (name === "update_visual") {
-    if (args.changes.length > 30000) throw Error("Visual patch too large.");
-    const patch = JSON.parse(args.changes);
-    if (!patch || typeof patch !== "object" || Array.isArray(patch))
-      throw Error("Visual patch must be an object.");
+    require("./visuals").validateVisualPatch(args.changes);
   }
   return args;
 }

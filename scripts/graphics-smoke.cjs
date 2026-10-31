@@ -38,7 +38,9 @@ async function checkGraphics(browser, base = "http://127.0.0.1:3000") {
     await page.waitForFunction(
       () =>
         Math.abs(window.visuals.capture().objects.ribbon.position[2] - 1) <
-        0.00001,
+          0.00001 &&
+        Math.abs(window.visuals.capture().objects.contacts.position[2] - 0.1) <
+          1e-9,
     );
     const inserted = await capture();
     assert.equal(inserted.objects.latch.position[1], 1);
@@ -135,6 +137,7 @@ if (require.main === module)
     try {
       await checkGraphics(browser, process.env.GRAPHICS_BASE_URL);
       await checkModeling(browser, process.env.GRAPHICS_BASE_URL);
+      await checkToolPayloads(browser, process.env.GRAPHICS_BASE_URL);
     } finally {
       await browser.close();
     }
@@ -283,3 +286,77 @@ async function checkModeling(browser, base = "http://127.0.0.1:3000") {
   }
 }
 module.exports.checkModeling = checkModeling;
+
+async function checkToolPayloads(browser, base = "http://127.0.0.1:3000") {
+  const { validateTool } = require("../src/main/lib/tools");
+  const {
+    validateVisual,
+    applyVisualPatch,
+  } = require("../src/main/lib/visuals");
+  const page = await browser.newPage({
+    viewport: { width: 1000, height: 720 },
+  });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  try {
+    await page.goto(base + "/canvas.html?example=connector");
+    await page.waitForSelector("#stage canvas");
+    for (const data of [
+      { kind: "chart", items: [{ label: "A", value: 2 }] },
+      { kind: "diagram", nodes: [{ id: "a", label: "A", x: 500, y: 500 }] },
+      {
+        kind: "canvas2d",
+        elements: [{ type: "box", x: 100, y: 100, x2: 400, y2: 400 }],
+      },
+      { kind: "scene3d", objects: [{ id: "ball", type: "sphere" }] },
+    ]) {
+      for (const encode of [(v) => v, JSON.stringify]) {
+        const args = validateTool("show_visual", {
+          spec: encode({
+            title: "Tool regression",
+            caption: "Conceptual",
+            ...data,
+          }),
+        });
+        const spec = validateVisual(args.spec);
+        const patch = validateTool("update_visual", {
+          changes: encode(
+            data.kind === "scene3d"
+              ? { objects: [{ id: "ball", color: "#ff0000" }] }
+              : { caption: "Edited" },
+          ),
+        });
+        for (const value of [spec, applyVisualPatch(spec, patch.changes)]) {
+          const result = await page.evaluate((s) => {
+            const host = document.querySelector("#stage");
+            window.visuals.render(host, s, {
+              transparent: true,
+              desktop: true,
+            });
+            const canvas = host.querySelector("canvas");
+            return {
+              width: canvas?.width,
+              height: canvas?.height,
+              objects: window.visuals.capture()?.objects,
+            };
+          }, value);
+          assert.ok(
+            result.width > 0 && result.height > 0,
+            `${data.kind} canvas`,
+          );
+          if (data.kind === "scene3d") {
+            assert.ok(result.objects.ball);
+            assert.equal(result.objects.ball.colors[0], value.objects[0].color);
+          }
+        }
+      }
+    }
+    assert.deepEqual(errors, []);
+    console.log(
+      "VISUAL_TOOL_BROWSER_OK: charts/diagrams/2D/3D, both payload encodings, omitted-field defaults and follow-up patches render in the production bundle",
+    );
+  } finally {
+    await page.close();
+  }
+}
+module.exports.checkToolPayloads = checkToolPayloads;

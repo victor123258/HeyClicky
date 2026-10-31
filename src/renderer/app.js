@@ -124,7 +124,7 @@ function message({ role, text, mode: messageMode }) {
 function tool(data) {
   const row = document.createElement("div");
   row.className = "tool-message";
-  row.textContent = `◇ ${data.name.replaceAll("_", " ")} · ${data.status}`;
+  row.textContent = `◇ ${data.name.replaceAll("_", " ")} · ${data.status}${data.error ? ": " + data.error : ""}`;
   $("#messages").append(row);
   scrollChat();
   if (activityCount === 0) $("#activity-list").replaceChildren();

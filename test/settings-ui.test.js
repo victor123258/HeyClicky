@@ -63,6 +63,7 @@ async function setup(t, kind, { warnings = [] } = {}) {
     set: (change) => (backend = { ...backend, ...change }),
     requests,
     status: () => emit({ type: "edge-status", data: status() }),
+    event: (type, data) => emit({ type, data }),
   };
 }
 for (const kind of ["notch", "panel"]) {
@@ -132,5 +133,20 @@ for (const kind of ["notch", "panel"]) {
         .querySelector(kind === "notch" ? "#notice" : "#toast")
         .textContent.includes(warning),
     );
+  });
+}
+
+for (const kind of ["notch", "panel"]) {
+  test(`${kind}: tool errors show the concrete reason as text, not injected HTML`, async (t) => {
+    const f = await setup(t, kind);
+    const reason = "Visual must be valid JSON <img src=x onerror=bad()>";
+    f.event("tool", { name: "show_visual", status: "failed", error: reason });
+    const node = f.d.querySelector(
+      kind === "notch" ? "#tool-status" : ".tool-message",
+    );
+    assert.match(node.textContent, /show visual.*failed/);
+    assert.ok(node.textContent.includes(reason));
+    assert.equal(node.querySelector("img"), null);
+    assert.equal(node.hidden, false);
   });
 }

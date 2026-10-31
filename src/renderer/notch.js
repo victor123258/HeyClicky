@@ -463,7 +463,8 @@ function appEvent({ type, data }) {
     $("#tool-status").textContent =
       (labels[data.name] || data.name.replaceAll("_", " ")) +
       " · " +
-      data.status;
+      data.status +
+      (data.error ? ": " + data.error : "");
   }
   if (type === "edge-status") renderEdgeStatus(data);
   if (type === "voice-notice") {

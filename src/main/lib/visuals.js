@@ -1,3 +1,4 @@
+const { visualJSON } = require("./visual-json");
 const {
   geometryFields,
   validateHierarchy,
@@ -17,11 +18,7 @@ function check(condition, message) {
   if (!condition) throw Error(message);
 }
 function validateVisual(raw) {
-  check(
-    typeof raw === "string" && raw.length <= 60000,
-    "Visual specification limit is 60,000 characters.",
-  );
-  const s = JSON.parse(raw);
+  const { value: s } = visualJSON(raw, 60000, "Visual specification");
   check(
     s && text(s.title) && text(s.caption, 2000),
     "Visual needs title (160 max) and caption (2000 max).",
@@ -59,16 +56,20 @@ function validateVisual(raw) {
       return { id: n.id, label: n.label, x: n.x, y: n.y };
     });
     ids = out.nodes.map((n) => n.id);
+    const edges = s.edges === undefined ? [] : s.edges;
     check(
-      Array.isArray(s.edges) &&
-        s.edges.length <= 40 &&
-        s.edges.every(
+      Array.isArray(edges) &&
+        edges.length <= 40 &&
+        edges.every(
           (e) =>
-            e && ids.includes(e.from) && ids.includes(e.to) && text(e.label),
+            e &&
+            ids.includes(e.from) &&
+            ids.includes(e.to) &&
+            (e.label === undefined || text(e.label)),
         ),
       "Diagram edges must reference existing nodes.",
     );
-    out.edges = s.edges.map(({ from, to, label }) => ({ from, to, label }));
+    out.edges = edges.map(({ from, to, label = "" }) => ({ from, to, label }));
   } else if (s.kind === "canvas2d") {
     check(
       Array.isArray(s.elements) &&
@@ -123,7 +124,7 @@ function validateVisual(raw) {
   } else if (s.kind === "scene3d") {
     const expanded = expandAssemblies(s, validateVisual);
     s.objects = expanded.objects.map((o) =>
-      o?.type === "group"
+      o && typeof o === "object" && !Array.isArray(o)
         ? { color: "#a4b5cf", x: 0, y: 0, z: 0, size: 1, ...o }
         : o,
     );
@@ -363,13 +364,8 @@ function validateVisual(raw) {
   );
   return out;
 }
-function applyVisualPatch(current, raw) {
-  check(current, "No visual to update. Create one with show_visual first.");
-  check(
-    typeof raw === "string" && raw.length <= 30000,
-    "Visual patch limit is 30,000 characters.",
-  );
-  const p = JSON.parse(raw);
+function validateVisualPatch(raw) {
+  const { value: p } = visualJSON(raw, 30000, "Visual patch");
   check(
     p &&
       typeof p === "object" &&
@@ -393,6 +389,11 @@ function applyVisualPatch(current, raw) {
       ),
     "Unknown or empty visual patch.",
   );
+  return p;
+}
+function applyVisualPatch(current, raw) {
+  check(current, "No visual to update. Create one with show_visual first.");
+  const p = validateVisualPatch(raw);
   for (const key of ["items", "nodes", "edges", "elements"])
     if (Object.hasOwn(p, key))
       check(
@@ -578,4 +579,9 @@ function visualContext(spec) {
   }
   return s;
 }
-module.exports = { validateVisual, applyVisualPatch, visualContext };
+module.exports = {
+  validateVisual,
+  validateVisualPatch,
+  applyVisualPatch,
+  visualContext,
+};
