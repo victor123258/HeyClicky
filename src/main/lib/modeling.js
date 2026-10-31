@@ -1,3 +1,4 @@
+const { estimatedTriangles } = require("../../shared/model-quality");
 // All modeling is bounded data. No code, URLs, expressions, plugins or shaders.
 const ok = (v, m) => {
   if (!v) throw Error(m);
@@ -188,23 +189,7 @@ function validateHierarchy(objects) {
     }
   }
 
-  let triangles = 0;
-  for (const o of objects) {
-    triangles +=
-      o.type === "tube"
-        ? o.segments * 12 * 2
-        : o.type === "lathe"
-          ? o.segments * (o.profile.length - 1) * 2
-          : o.type === "extrude"
-            ? o.profile.length * 20
-            : o.type === "group" ||
-                o.type === "label" ||
-                o.type === "line" ||
-                o.type === "arrow" ||
-                o.type === "mesh"
-              ? 0
-              : 800;
-  }
+  const triangles = objects.reduce((sum, o) => sum + estimatedTriangles(o), 0);
   ok(
     triangles <= 60000,
     "Procedural geometry budget exceeded (60,000 estimated triangles).",

@@ -8,6 +8,7 @@ async function checkGraphics(browser, base = "http://127.0.0.1:3000") {
     errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   try {
+    await page.clock.install();
     await page.goto(base + "/canvas.html?example=connector");
     await page.waitForSelector("#stage canvas");
     assert.equal(await page.locator("#error").isVisible(), false);
@@ -18,16 +19,21 @@ async function checkGraphics(browser, base = "http://127.0.0.1:3000") {
     await page.mouse.up();
     await page.mouse.wheel(0, -120);
     const orbit = (await capture()).camera;
-    await page.locator("#next").click();
-    await page.waitForTimeout(150);
+    // Drive animation time explicitly: software-GPU shader compilation may
+    // take longer than a whole tween, which makes wall-clock sampling flaky.
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await page.locator("#next").dispatchEvent("click");
+    await page.clock.runFor(150);
     const moving = await capture();
     assert.ok(
       moving.objects.latch.position[1] > 0.35 &&
         moving.objects.latch.position[1] < 1,
+      `Expected a tween frame, got latch y=${moving.objects.latch.position[1]}`,
     );
     const frame = await page.locator("#stage").screenshot();
-    await page.waitForTimeout(220);
+    await page.clock.runFor(220);
     assert.notDeepEqual(await page.locator("#stage").screenshot(), frame);
+    await page.clock.resume();
     await page.waitForFunction(
       () =>
         Math.abs(window.visuals.capture().objects.latch.position[1] - 1) <
@@ -213,26 +219,12 @@ async function checkModeling(browser, base = "http://127.0.0.1:3000") {
       await page.locator("#part-select").inputValue(),
       "left__latch",
     );
-    const boxes = await page
-      .locator(".scene-part-label:not([hidden])")
-      .evaluateAll((elements) =>
-        elements.map((e) => {
-          const r = e.getBoundingClientRect();
-          return { x: r.x, y: r.y, w: r.width, h: r.height };
-        }),
-      );
-    assert.ok(boxes.length >= 3);
-    for (let i = 0; i < boxes.length; i++)
-      for (let j = i + 1; j < boxes.length; j++) {
-        const a = boxes[i],
-          b = boxes[j];
-        assert.ok(
-          a.x + a.w <= b.x ||
-            b.x + b.w <= a.x ||
-            a.y + a.h <= b.y ||
-            b.y + b.h <= a.y,
-        );
-      }
+    // Names remain accessible in the selector/footer, never in floating boxes.
+    assert.equal(
+      await page.locator(".scene-part-label,.scene-label-layer").count(),
+      0,
+    );
+    assert.ok((await page.locator("#part-select option").count()) > 3);
     const oldColor = await page.evaluate(
       () => window.visuals.capture().objects.left__latch.colors[0],
     );
@@ -279,7 +271,7 @@ async function checkModeling(browser, base = "http://127.0.0.1:3000") {
     }
     assert.deepEqual(errors, []);
     console.log(
-      "MODELING_BROWSER_OK: curved/extruded assemblies, click selection, component controls, fixed world hinge pivots, inherited child motion, camera focus/preservation, labels and pass-through",
+      "MODELING_BROWSER_OK: curved/extruded assemblies, click selection, component controls, fixed world hinge pivots, inherited child motion, camera focus/preservation, callout-free models and pass-through",
     );
   } finally {
     await page.close();

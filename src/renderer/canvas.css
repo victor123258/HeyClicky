@@ -187,9 +187,3 @@ body.interactive #input-mode {
   overflow-wrap: anywhere;
   margin: 4px 0;
 }
-.scene-part-label[hidden] {
-  display: none !important;
-}
-.scene-label-layer {
-  z-index: 1;
-}
