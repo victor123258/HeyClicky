@@ -1,6 +1,8 @@
 import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { surfaceOptions } from "./modeling-surface.mjs";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { geometry, placeLabels } from "./modeling-geometry.mjs";
+import { geometry } from "./modeling-geometry.mjs";
 import { visiblePartIds } from "../shared/scene-data.js";
 import { stepObjects } from "./visual-state.mjs";
 export function createSceneRenderer(host, spec, options = {}) {
@@ -34,7 +36,7 @@ function buildSceneRenderer(host, spec, options, onFailure) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setClearColor(0x141e2c, options.transparent ? 0 : 1);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1;
   host.append(renderer.domElement);
   renderer.domElement.setAttribute(
     "aria-label",
@@ -46,7 +48,6 @@ function buildSceneRenderer(host, spec, options, onFailure) {
     nodes = new Map(),
     frames = new Map(),
     parts = new Map(),
-    labels = [],
     resources = new Set(),
     transitions = [],
     colorMoves = [],
@@ -59,7 +60,6 @@ function buildSceneRenderer(host, spec, options, onFailure) {
     reduce = matchMedia("(prefers-reduced-motion: reduce)").matches,
     duration = reduce ? 0 : (options.transitionMs ?? step?.durationMs ?? 650);
   let interactive = Boolean(options.interactive ?? true),
-    selected = null,
     disposed = false,
     frame = 0,
     last = 0,
@@ -68,28 +68,34 @@ function buildSceneRenderer(host, spec, options, onFailure) {
     disposed = true;
     cancelAnimationFrame(frame);
   });
-  const overlay = document.createElement("div");
-  overlay.className = "scene-label-layer";
-  overlay.style.cssText =
-    "position:absolute;inset:0;pointer-events:none;overflow:hidden";
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.style.cssText =
-    "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
-  overlay.append(svg);
-  host.style.position = "relative";
-  host.append(overlay);
   const preset = spec.lighting ?? "studio";
+  // A trusted, locally generated studio environment gives metal/plastic real
+  // reflections without loading HDRIs/assets or adding an opaque background.
+  const room = new RoomEnvironment();
+  let pmrem;
+  try {
+    pmrem = new THREE.PMREMGenerator(renderer);
+    const environment = pmrem.fromScene(room, 0.04, 0.1, 100, { size: 128 });
+    resources.add(environment);
+    scene.environment = environment.texture;
+    scene.environmentIntensity =
+      preset === "technical" ? 0.5 : preset === "soft" ? 1 : 0.8;
+  } finally {
+    room.dispose();
+    pmrem?.dispose();
+  }
+
   scene.add(
     new THREE.HemisphereLight(
       0xe4efff,
       0x38475e,
-      preset === "technical" ? 2.4 : 1.7,
+      preset === "technical" ? 1.4 : 0.9,
     ),
   );
   for (const [color, power, position] of [
-    [0xfff1e3, 3, [8, 12, 7]],
-    [0xadcfff, preset === "soft" ? 1.8 : 1.4, [-8, 4, 4]],
-    [0xf2edff, 2, [2, 7, -9]],
+    [0xfff1e3, 1.8, [8, 12, 7]],
+    [0xadcfff, preset === "soft" ? 1.1 : 0.7, [-8, 4, 4]],
+    [0xf2edff, 1.2, [2, 7, -9]],
   ]) {
     const l = new THREE.DirectionalLight(color, power);
     l.position.set(...position);
@@ -111,16 +117,8 @@ function buildSceneRenderer(host, spec, options, onFailure) {
   };
   const mat = (o) =>
     new THREE.MeshPhysicalMaterial({
-      color: o.color,
-      roughness: o.material?.roughness ?? 0.48,
-      metalness: o.material?.metalness ?? 0.12,
-      clearcoat: o.material?.clearcoat ?? 0.15,
+      ...surfaceOptions(o, emphasized(o), Boolean(options.animate && !reduce)),
       side: THREE.DoubleSide,
-      transparent: true,
-      opacity: (o.opacity ?? 1) * (emphasized(o) ? 1 : 0.24),
-      wireframe: o.wireframe ?? false,
-      emissive: o.material?.emissive ?? "#000000",
-      emissiveIntensity: o.material?.emissiveIntensity ?? 0,
     });
   const track = (root) =>
     root.traverse((c) => {
@@ -184,31 +182,15 @@ function buildSceneRenderer(host, spec, options, onFailure) {
       track(mesh);
     }
     parts.set(o.id, { o, node, content, pivot, mesh });
-    if (o.label) {
-      const el = document.createElement("span"),
-        line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      el.className = "scene-part-label";
-      el.textContent = o.label;
-      el.title = o.label;
-      el.style.cssText =
-        "position:absolute;font:12px/22px Segoe UI,sans-serif;padding:0 7px;color:#f1f5ff;text-shadow:0 1px 4px #000,0 0 3px #000;border-bottom:1px solid #a9bfd5;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-sizing:border-box";
-      line.setAttribute("stroke", "#9bb4cc");
-      line.setAttribute("stroke-opacity", ".7");
-      svg.append(line);
-      overlay.append(el);
-      labels.push({ id: o.id, text: o.label, el, line });
-    }
   }
   for (const { o, node } of parts.values())
     (o.parent ? frames.get(o.parent) : scene).add(node);
   scene.updateMatrixWorld(true);
   const bounds = new THREE.Box3();
-  for (const { node, o, content } of parts.values())
-    if (node.visible) {
-      bounds.expandByObject(node);
-      if (o.type === "label")
-        bounds.expandByPoint(content.getWorldPosition(new THREE.Vector3()));
-    }
+  // Metadata-only labels and hidden descendants must not make the actual
+  // geometry appear tiny. Only visible renderable parts determine framing.
+  for (const { node, mesh } of parts.values())
+    if (node.visible && mesh) bounds.expandByObject(mesh);
   if (bounds.isEmpty())
     bounds.set(new THREE.Vector3(-1, -1, -1), new THREE.Vector3(1, 1, 1));
   const center = bounds.getCenter(new THREE.Vector3()),
@@ -267,75 +249,10 @@ function buildSceneRenderer(host, spec, options, onFailure) {
     });
     if (o.motion) motions.push({ o, node, base: motionBase });
   }
-  const selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0xffd78b);
-  selectionBox.visible = false;
-  scene.add(selectionBox);
-  resources.add(selectionBox.geometry);
-  resources.add(selectionBox.material);
-  function updateLabels() {
-    const w = host.clientWidth,
-      h = renderer.domElement.clientHeight,
-      projected = [];
-    scene.updateMatrixWorld(true);
-    for (const l of labels) {
-      const part = parts.get(l.id);
-      l.el.hidden = true;
-      l.line.style.display = "none";
-      if (!part.node.visible) continue;
-      const point = part.content
-        .localToWorld(
-          new THREE.Vector3(
-            ...(part.o.labelOffset || [
-              0,
-              part.o.type === "label" ? 0 : part.o.size / 2,
-              0,
-            ]),
-          ),
-        )
-        .project(camera);
-      if (
-        point.z < -1 ||
-        point.z > 1 ||
-        Math.abs(point.x) > 1.1 ||
-        Math.abs(point.y) > 1.1
-      )
-        continue;
-      projected.push({
-        ...l,
-        x: ((point.x + 1) * w) / 2,
-        y: ((1 - point.y) * h) / 2,
-        priority: l.id === selected ? 2 : highlight.has(l.id) ? 1 : 0,
-      });
-    }
-    projected.sort((a, b) => b.priority - a.priority);
-    for (const l of placeLabels(projected.slice(0, 16), w, h)) {
-      l.el.hidden = false;
-      l.el.style.left = l.x + "px";
-      l.el.style.top = l.y + "px";
-      l.el.style.width = l.w + "px";
-      l.el.style.color = l.id === selected ? "#ffdb97" : "#f1f5ff";
-      const p = projected.find((p) => p.id === l.id);
-      l.line.style.display = "";
-      for (const [k, v] of Object.entries({
-        x1: p.x,
-        y1: p.y,
-        x2: l.x + l.w / 2,
-        y2: l.y + l.h / 2,
-      }))
-        l.line.setAttribute(k, v);
-    }
-  }
   const draw = () => {
     if (disposed) return;
     scene.updateMatrixWorld(true);
-    if (selected) {
-      selectionBox.setFromObject(nodes.get(selected));
-      selectionBox.visible = !new THREE.Box3()
-        .setFromObject(nodes.get(selected))
-        .isEmpty();
-    }
     renderer.render(scene, camera);
-    updateLabels();
   };
   let firstSize = true;
   const resize = () => {
@@ -353,8 +270,10 @@ function buildSceneRenderer(host, spec, options, onFailure) {
         controls.target.fromArray(prev.target);
       } else {
         const f = Math.min(
-          Math.PI / 8,
-          Math.atan(Math.tan(Math.PI / 8) * camera.aspect),
+          THREE.MathUtils.degToRad(camera.fov / 2),
+          Math.atan(
+            Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect,
+          ),
         );
         camera.position
           .copy(center)
@@ -373,7 +292,7 @@ function buildSceneRenderer(host, spec, options, onFailure) {
   onFailure(() => observer.disconnect());
   observer.observe(host);
   controls.addEventListener("change", draw);
-  const start = performance.now();
+  let start = 0;
   function animate(now) {
     frame = 0;
     if (disposed) return;
@@ -382,7 +301,7 @@ function buildSceneRenderer(host, spec, options, onFailure) {
       return;
     }
     last = now;
-    const elapsed = now - start,
+    const elapsed = Math.max(0, now - start),
       t = duration ? Math.min(1, elapsed / duration) : 1,
       e = t * t * (3 - 2 * t);
     for (const { node, from, goal } of transitions) {
@@ -432,8 +351,6 @@ function buildSceneRenderer(host, spec, options, onFailure) {
   };
   function setSelection(id) {
     if (id && !nodes.has(id)) id = null;
-    selected = id;
-    selectionBox.visible = Boolean(id);
     for (const { o, mesh } of parts.values())
       mesh?.traverse((c) => {
         if (!c.material?.emissive) return;
@@ -538,6 +455,9 @@ function buildSceneRenderer(host, spec, options, onFailure) {
   controls.addEventListener("start", manual);
   resize();
   setSelection(options.selectedId ?? null);
+  // Shader/environment preparation can be slow on software GPUs. Start the
+  // transition clock after the first frame, not before compilation.
+  start = performance.now();
   if (
     transitions.length ||
     colorMoves.length ||
@@ -607,7 +527,6 @@ function buildSceneRenderer(host, spec, options, onFailure) {
       renderer.dispose();
       renderer.forceContextLoss();
       renderer.domElement.remove();
-      overlay.remove();
     },
   };
 }

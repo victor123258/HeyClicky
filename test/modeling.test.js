@@ -276,9 +276,8 @@ test("step visibility includes group ancestors and listed groups descendants, no
   assert.equal(visiblePartIds(s, 0).length, 4);
   assert.ok(!visiblePartIds(s, 0).includes("right__latch"));
 });
-test("procedural Three.js geometry is finite, triangulated and within conservative budgets; label layout avoids overlaps", async () => {
-  const { geometry, placeLabels } =
-    await import("../src/renderer/modeling-geometry.mjs");
+test("procedural Three.js geometry is finite and triangulated", async () => {
+  const { geometry } = await import("../src/renderer/modeling-geometry.mjs");
   for (const o of clean(raw).objects.filter((o) =>
     ["lathe", "tube", "roundedBox", "extrude"].includes(o.type),
   )) {
@@ -289,28 +288,6 @@ test("procedural Three.js geometry is finite, triangulated and within conservati
     g.computeBoundingBox();
     assert.ok(Number.isFinite(g.boundingBox.max.x));
     g.dispose();
-  }
-  const boxes = placeLabels(
-    Array.from({ length: 16 }, (_, i) => ({
-      id: "a" + i,
-      text: "component " + i,
-      x: 180,
-      y: 150,
-    })),
-    400,
-    300,
-  );
-  assert.ok(boxes.length > 1);
-  for (const b of boxes) {
-    assert.ok(b.x >= 0 && b.y >= 0 && b.x + b.w <= 400 && b.y + b.h <= 300);
-    for (const a of boxes)
-      if (a !== b)
-        assert.ok(
-          b.x + b.w <= a.x ||
-            a.x + a.w <= b.x ||
-            b.y + b.h <= a.y ||
-            a.y + a.h <= b.y,
-        );
   }
 });
 
