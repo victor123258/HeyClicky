@@ -185,3 +185,11 @@ Automated tests cover object/string encodings for charts, diagrams, free-form 2D
 - [ ] Inspect curved edges and shared-vertex mechanical meshes from several angles. Confirm smoother curves and crisp intentional edges. Opaque intersecting housings should not suffer transparent-material sorting; intentional translucency, teaching color emphasis and playing pulses should still work.
 - [ ] Check the studio reflections on metal and plastic against both light and dark desktop backgrounds. The desktop canvas remains transparent; no downloaded texture/asset or environment background is used. Reset should frame visible geometry rather than distant label-only metadata/hidden parts.
 - [ ] Generate a familiar object with a reference and inspect its proportions/silhouette. Improved renderer settings cannot verify model-generated geometry; record provider, prompt and a screenshot when the shape is inaccurate. Test real Windows GPU/DPI and normal/reduced-motion settings.
+
+## Free Models Router default (1.8.6)
+
+- [ ] A fresh install/settings reset starts with `openrouter/free` in both settings UIs. An upgrade preserves an explicitly saved model; **Use Free Models Router** changes the draft field only, and **Save** applies it without replacing the encrypted API key or unrelated preferences.
+- [ ] Test the saved connection with your own OpenRouter key, then separately test screenshots and actual tool calls. A text-only connection test does not prove image/tool compatibility. Free availability, rate limits and generated task quality remain provider-dependent.
+- [ ] A rate/account limit is reported rather than silently substituting a paid model. The router chooses the underlying compatible free model remotely; this is not local model installation, unlimited usage or account-limit bypass.
+
+Automated tests use mock provider responses to verify the exact `openrouter/free` request, image content, tool schemas/required-parameter routing, one-request limit failures, persistence/key retention and both real Settings UI scripts. They do not establish live free-pool availability or task quality.

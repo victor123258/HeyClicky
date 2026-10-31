@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const DEFAULTS = Object.freeze({
-  model: "openai/gpt-4.1-mini",
+  model: "openrouter/free",
   voice: "",
   speechLanguage: "",
   voiceProvider: "windows",

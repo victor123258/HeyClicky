@@ -12,7 +12,7 @@ if (!(window.notch && typeof window.notch.get === "function")) {
   let jobs = [],
     messages = [];
   let config = {
-    model: "openai/gpt-4.1-mini",
+    model: "openrouter/free",
     voice: "",
     speechLanguage: "",
     voiceProvider: "windows",

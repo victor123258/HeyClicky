@@ -296,9 +296,23 @@
                   >Encrypted with Windows DPAPI. Leave blank to keep a saved
                   key.</small
                 ><label for="model">Model</label
-                ><input id="model" required spellcheck="false" /><small
-                  >Choose an OpenRouter model with vision and tool
-                  support.</small
+                ><input
+                  id="model"
+                  placeholder="openrouter/free"
+                  required
+                  spellcheck="false"
+                />
+                <button
+                  type="button"
+                  id="use-free-router"
+                  class="outline-button"
+                >
+                  Use Free Models Router</button
+                ><small id="model-help"
+                  >Default: openrouter/free. OpenRouter selects compatible free
+                  models. An API key is still required; availability and usage
+                  limits apply. Custom models may incur charges. Choose above,
+                  then Save to apply.</small
                 ><button
                   type="button"
                   id="test-key"

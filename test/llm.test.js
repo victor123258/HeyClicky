@@ -159,3 +159,64 @@ test("malformed, duplicate or truncated tool calls cannot execute", async () => 
     /truncated/,
   );
 });
+
+test("default Free Models Router requests retain images and strict tool routing without paid fallbacks", async () => {
+  const { validate } = require("../src/main/lib/settings");
+  const { tools } = require("../src/main/lib/tools");
+  const messages = [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Explain this screen" },
+        { type: "image_url", image_url: { url: "data:image/png;base64,test" } },
+      ],
+    },
+  ];
+  let requests = 0;
+  const result = await complete({
+    key: "test-key",
+    model: validate({}).model,
+    messages,
+    tools,
+    fetchImpl: async (url, options) => {
+      requests++;
+      assert.equal(url, "https://openrouter.ai/api/v1/chat/completions");
+      const body = JSON.parse(options.body);
+      assert.equal(body.model, "openrouter/free");
+      assert.equal(body.models, undefined);
+      assert.equal(body.route, undefined);
+      assert.deepEqual(body.messages, messages);
+      assert.deepEqual(body.tools, tools);
+      assert.equal(body.tool_choice, "auto");
+      assert.equal(body.provider.require_parameters, true);
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { role: "assistant", content: "Example" } }],
+        }),
+      };
+    },
+  });
+  assert.equal(result.content, "Example");
+  assert.equal(requests, 1);
+});
+
+test("free-router rate/account limits fail visibly rather than retrying a paid model", async () => {
+  for (const status of [402, 429]) {
+    let requests = 0;
+    await assert.rejects(
+      complete({
+        key: "test-key",
+        model: "openrouter/free",
+        messages: [],
+        fetchImpl: async (_url, options) => {
+          requests++;
+          assert.equal(JSON.parse(options.body).model, "openrouter/free");
+          return { ok: false, status };
+        },
+      }),
+      /credit|Rate limited/,
+    );
+    assert.equal(requests, 1);
+  }
+});

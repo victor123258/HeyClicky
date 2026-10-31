@@ -15,7 +15,11 @@ async function setup(t, kind, { warnings = [] } = {}) {
     { runScripts: "outside-only", url: "http://test/" },
   );
   t.after(() => dom.window.close());
-  let backend = validate({ edgeBackground: true, edgeWindowMode: "minimized" }),
+  let backend = validate({
+      model: "openai/gpt-4.1-mini",
+      edgeBackground: true,
+      edgeWindowMode: "minimized",
+    }),
     emit;
   const requests = [];
   const status = () => ({
@@ -148,5 +152,39 @@ for (const kind of ["notch", "panel"]) {
     assert.ok(node.textContent.includes(reason));
     assert.equal(node.querySelector("img"), null);
     assert.equal(node.hidden, false);
+  });
+}
+
+for (const kind of ["notch", "panel"]) {
+  test(`${kind}: Free Models Router preset requires Save and preserves unrelated settings`, async (t) => {
+    const f = await setup(t, kind);
+    assert.equal(f.d.querySelector("#model").value, "openai/gpt-4.1-mini");
+    const before = structuredClone(f.backend());
+    const requests = f.requests.length;
+    const button = f.d.querySelector("#use-free-router");
+    assert.equal(button.type, "button");
+    button.click();
+    assert.equal(f.d.querySelector("#model").value, "openrouter/free");
+    assert.deepEqual(f.backend(), before);
+    assert.equal(f.requests.length, requests);
+    assert.match(
+      f.d.querySelector("#model-help").textContent,
+      /API key.*required/,
+    );
+    f.d
+      .querySelector("#settings-form")
+      .dispatchEvent(new f.w.Event("submit", { cancelable: true }));
+    await wait();
+    assert.equal(f.backend().model, "openrouter/free");
+    for (const key of [
+      "askBeforeActions",
+      "screenContext",
+      "edgeWindowMode",
+      "voiceProvider",
+      "buddySize",
+    ])
+      assert.equal(f.backend()[key], before[key]);
+    const save = f.requests.findLast((r) => r.name === "save-settings");
+    assert.equal(save.args[1], undefined); // Retain the saved API key.
   });
 }
